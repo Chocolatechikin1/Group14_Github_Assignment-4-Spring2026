@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "MiniTA",
+    "slug": "minita-app",
+    "version": "1.0.0",
+    "platforms": ["ios", "android"],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#BC0001"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.minita.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#BC0001"
+      },
+      "package": "com.minita.app"
+    }
+  }
+}
