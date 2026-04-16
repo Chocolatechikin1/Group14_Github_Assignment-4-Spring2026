@@ -1,6 +1,10 @@
 # MiniTA Mobile App
 
+## Description
 AI Teaching Assistant – React Native / Expo mobile app.
+
+## Features
+(mention features here)
 
 ---
 
