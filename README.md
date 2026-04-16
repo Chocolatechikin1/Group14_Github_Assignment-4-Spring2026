@@ -8,7 +8,7 @@ AI Teaching Assistant – React Native / Expo mobile app.
 
 ---
 
-## ⚡ Quick Start (2 steps)
+## Quick Start (2 steps)
 
 ### 1. Install dependencies
 
@@ -31,7 +31,7 @@ npm start
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 minita-app/
@@ -70,7 +70,7 @@ minita-app/
 
 ---
 
-## ✅ Interactive Features
+## Interactive Features
 
 ### Dashboard
 | Feature | Action |
@@ -112,7 +112,7 @@ minita-app/
 
 ---
 
-## 🎨 Design Tokens
+## Design Tokens
 
 | Token | Value |
 |---|---|
