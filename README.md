@@ -110,6 +110,9 @@ minita-app/
 | All row items | Tap for Alert feedback |
 | Sign Out | Confirmation dialog |
 
+### Login Page
+(description here)
+
 ---
 
 ## Design Tokens
