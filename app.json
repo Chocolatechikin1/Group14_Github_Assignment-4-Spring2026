@@ -3,7 +3,7 @@
     "name": "MiniTA",
     "slug": "minita-app",
     "version": "1.0.0",
-    "platforms": ["ios", "android"],
+    "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,6 +22,9 @@
         "backgroundColor": "#BC0001"
       },
       "package": "com.minita.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }
