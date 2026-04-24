@@ -1,34 +1,38 @@
 import { StyleSheet, Platform } from 'react-native';
-export const RED = '#BC0001';
+
+export const ACCENT = '#BC0001'; // Original School/Canvas theme red
+export const ACCENT_BG = '#ffffff';
 
 export const SHADOW = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
-  android: { elevation: 3 },
+  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+  android: { elevation: 2 },
+  web:     { boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)' },
 }) ?? {};
 
 export const CARD_SHADOW = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
-  android: { elevation: 4 },
+  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10 },
+  android: { elevation: 3 },
+  web:     { boxShadow: '0 4px 6px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.03)' },
 }) ?? {};
 
 export const shared = StyleSheet.create({
-  screen:    { flex: 1, backgroundColor: RED },
-  body:      { flex: 1, backgroundColor: '#F3F4F6' },
-  bodyPad:   { padding: 16 },
+  screen:    { flex: 1, backgroundColor: '#FAFAFA' },
+  body:      { flex: 1, backgroundColor: '#F9FAFB' },
+  bodyPad:   { padding: 24 },
 
   // Header
-  header:        { backgroundColor: RED, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header:        { backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   logoRow:       { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoBox:       { width: 36, height: 36, backgroundColor: 'white', borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  logoBox:       { width: 36, height: 36, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
   logoEmoji:     { fontSize: 18 },
-  logoName:      { color: 'white', fontSize: 17, fontWeight: '800' as const },
-  logoSub:       { color: 'rgba(255,255,255,0.75)', fontSize: 10 },
-  headerRight:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  notifWrap:     { position: 'relative' as const, padding: 4 },
+  logoName:      { color: '#111827', fontSize: 20, fontWeight: '800' as const, letterSpacing: -0.5 },
+  logoSub:       { color: '#6B7280', fontSize: 13, fontWeight: '500' },
+  headerRight:   { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  notifWrap:     { position: 'relative' as const, padding: 8, backgroundColor: '#F3F4F6', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
   notifEmoji:    { fontSize: 20 },
-  notifDot:      { position: 'absolute' as const, top: 2, right: 2, width: 8, height: 8, borderRadius: 4, backgroundColor: '#FBBF24', borderWidth: 1.5, borderColor: RED },
-  avatar:        { width: 34, height: 34, borderRadius: 17, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center' },
-  avatarTxt:     { color: 'white', fontWeight: '700' as const, fontSize: 12 },
+  notifDot:      { position: 'absolute' as const, top: -2, right: -2, width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', borderWidth: 2, borderColor: '#FFFFFF' },
+  avatar:        { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  avatarTxt:     { color: '#111827', fontWeight: '700' as const, fontSize: 14 },
 
   // Section headers
   sectionHead:   { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
@@ -53,7 +57,7 @@ export const shared = StyleSheet.create({
   metaVal:         { fontSize: 13, color: '#111827', fontWeight: '700' as const },
   detailHead:      { fontSize: 13, fontWeight: '700' as const, color: '#374151', marginBottom: 6 },
   detailTxt:       { fontSize: 13, color: '#6B7280', lineHeight: 20, marginBottom: 20 },
-  ctaBtn:          { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginBottom: 10 },
+  ctaBtn:          { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
   ctaTxt:          { color: 'white', fontWeight: '800' as const, fontSize: 14 },
   dismissBtn:      { paddingVertical: 10, alignItems: 'center' },
   dismissTxt:      { color: '#6B7280', fontWeight: '600' as const, fontSize: 13 },

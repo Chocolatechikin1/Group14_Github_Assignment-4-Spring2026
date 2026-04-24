@@ -3,7 +3,8 @@ import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
-import { shared } from '../../styles/shared';
+import { shared, ACCENT } from '../../styles/shared';
+import { WEEK_DAYS, HOUR_LABELS, HOURS } from '../../data';
 
 const DURATIONS = ['30 min', '1 hour', '1.5 hours', '2 hours', '3 hours'];
 const COURSES_LIST = [
@@ -17,20 +18,24 @@ const COURSES_LIST = [
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onAdd: (title: string, course: string, duration: string) => void;
+  onAdd: (title: string, course: string, duration: string, day: number, startTime: number) => void;
 }
 
 export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
   const [title, setTitle]       = useState('');
   const [duration, setDuration] = useState('1 hour');
   const [course, setCourse]     = useState('SELF');
+  const [selectedDay, setSelectedDay] = useState(1); // 1 = Monday
+  const [selectedTime, setSelectedTime] = useState(16); // 16 = 4 PM
 
   const handleAdd = () => {
     if (!title.trim()) return;
-    onAdd(title.trim(), course, duration);
+    onAdd(title.trim(), course, duration, selectedDay, selectedTime);
     setTitle('');
     setDuration('1 hour');
     setCourse('SELF');
+    setSelectedDay(1);
+    setSelectedTime(16);
     onClose();
   };
 
@@ -80,8 +85,36 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
               ))}
             </View>
 
+            {/* Day selector */}
+            <Text style={[s.label, { marginTop: 14 }]}>Day</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+              {WEEK_DAYS.map((day, idx) => (
+                <TouchableOpacity
+                  key={day}
+                  style={[s.courseChip, selectedDay === idx + 1 && { backgroundColor: '#374151' }]}
+                  onPress={() => setSelectedDay(idx + 1)}
+                >
+                  <Text style={[s.courseChipTxt, selectedDay === idx + 1 && { color: 'white' }]}>{day}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Time selector */}
+            <Text style={[s.label, { marginTop: 14 }]}>Start Time</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+              {HOURS.map((hr, idx) => (
+                <TouchableOpacity
+                  key={hr}
+                  style={[s.courseChip, selectedTime === hr && { backgroundColor: '#374151' }]}
+                  onPress={() => setSelectedTime(hr)}
+                >
+                  <Text style={[s.courseChipTxt, selectedTime === hr && { color: 'white' }]}>{HOUR_LABELS[idx]}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             <TouchableOpacity
-              style={[shared.ctaBtn, { backgroundColor: '#7C3AED', marginTop: 20, opacity: title.trim() ? 1 : 0.5 }]}
+              style={[shared.ctaBtn, { backgroundColor: ACCENT, marginTop: 20, opacity: title.trim() ? 1 : 0.5 }]}
               onPress={handleAdd}
               disabled={!title.trim()}
             >
@@ -104,7 +137,7 @@ const s = StyleSheet.create({
   courseChipTxt:{ fontSize: 12, fontWeight: '600', color: '#374151' },
   durationRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   durBtn:       { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: 'white' },
-  durBtnActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  durBtnActive: { backgroundColor: ACCENT, borderColor: ACCENT },
   durTxt:       { fontSize: 13, fontWeight: '600', color: '#374151' },
   durTxtActive: { color: 'white' },
 });

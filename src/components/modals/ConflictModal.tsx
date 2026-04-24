@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { shared, RED } from '../../styles/shared';
+import { shared, ACCENT } from '../../styles/shared';
 
 const CONFLICTS = [
   { label: 'Physics Quiz 2',  time: '2:00 PM', color: '#3B82F6' },
@@ -52,7 +52,7 @@ export default function ConflictModal({ visible, onClose }: Props) {
             ))}
           </View>
 
-          <TouchableOpacity style={[shared.ctaBtn, { backgroundColor: RED }]} onPress={onClose}>
+          <TouchableOpacity style={[shared.ctaBtn, { backgroundColor: ACCENT }]} onPress={onClose}>
             <Text style={shared.ctaTxt}>RESCHEDULE TASKS</Text>
           </TouchableOpacity>
           <TouchableOpacity style={shared.dismissBtn} onPress={onClose}>

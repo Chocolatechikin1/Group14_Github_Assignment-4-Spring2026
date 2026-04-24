@@ -5,11 +5,12 @@ import { shared } from '../../styles/shared';
 
 interface Props {
   task: Task | null;
+  isChecked: boolean;
   onClose: () => void;
   onComplete: (id: string) => void;
 }
 
-export default function TaskDetailModal({ task, onClose, onComplete }: Props) {
+export default function TaskDetailModal({ task, isChecked, onClose, onComplete }: Props) {
   if (!task) return null;
   const course = COURSES[task.course];
 
@@ -60,10 +61,10 @@ export default function TaskDetailModal({ task, onClose, onComplete }: Props) {
 
           {/* CTA */}
           <TouchableOpacity
-            style={[shared.ctaBtn, { backgroundColor: course.color }]}
+            style={[shared.ctaBtn, { backgroundColor: isChecked ? '#9CA3AF' : course.color }]}
             onPress={() => { onComplete(task.id); onClose(); }}
           >
-            <Text style={shared.ctaTxt}>✓  Mark as Complete</Text>
+            <Text style={shared.ctaTxt}>{isChecked ? '⟲  Mark as Incomplete' : '✓  Mark as Complete'}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={shared.dismissBtn} onPress={onClose}>
             <Text style={shared.dismissTxt}>Close</Text>

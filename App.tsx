@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
@@ -20,6 +20,9 @@ export default function App() {
   const [netId, setNetId]             = useState<string | null>(null);
   const [activeTab, setActiveTab]     = useState<TabName>('Dashboard');
 
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
   useEffect(() => {
     Font.loadAsync({
       ...Ionicons.font,
@@ -30,8 +33,8 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#BC0001', alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color="white" size="large" />
+        <View style={{ flex: 1, backgroundColor: '#FAFAFA', alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#BC0001" size="large" />
         </View>
       </SafeAreaProvider>
     );
@@ -43,7 +46,7 @@ export default function App() {
   if (!netId) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="light" backgroundColor="#BC0001" />
+        <StatusBar style="dark" />
         <LoginScreen onLogin={handleLogin} />
       </SafeAreaProvider>
     );
@@ -58,18 +61,29 @@ export default function App() {
     }
   };
 
+  const rootStyle = [
+    styles.root,
+    isDesktop && { flexDirection: 'row' as const }
+  ];
+
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" backgroundColor="#BC0001" />
-      <View style={styles.root}>
+    <SafeAreaProvider style={{ flex: 1 }}>
+      <StatusBar style="dark" />
+      <View style={rootStyle}>
+        {isDesktop && <TabBar activeTab={activeTab} onChangeTab={setActiveTab} isDesktop={isDesktop} />}
         <View style={styles.content}>{renderScreen()}</View>
-        <TabBar activeTab={activeTab} onChangeTab={setActiveTab} />
+        {!isDesktop && <TabBar activeTab={activeTab} onChangeTab={setActiveTab} isDesktop={false} />}
       </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: '#BC0001' },
-  content: { flex: 1 },
+  root: { 
+    flex: 1, 
+    backgroundColor: '#FAFAFA',
+    width: '100%',
+    fontFamily: Platform.OS === 'web' ? 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' : undefined
+  },
+  content: { flex: 1, overflow: 'hidden' },
 });

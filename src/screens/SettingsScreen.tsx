@@ -4,7 +4,7 @@ import {
   StyleSheet, SafeAreaView, Switch, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { shared, RED } from '../styles/shared';
+import { shared, ACCENT } from '../styles/shared';
 import Header from '../components/Header';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -61,7 +61,7 @@ export default function SettingsScreen({ netId, onLogout }: Props) {
     {
       section: 'AI Assistant',
       items: [
-        { icon: 'hardware-chip-outline', iconColor: RED,       iconBg: '#FEE2E2', label: 'MiniTA Persona', sub: 'Default', action: () => Alert.alert('Persona', 'Choose: Default, Formal, Casual, Motivating') },
+        { icon: 'hardware-chip-outline', iconColor: ACCENT,       iconBg: '#FEE2E2', label: 'MiniTA Persona', sub: 'Default', action: () => Alert.alert('Persona', 'Choose: Default, Formal, Casual, Motivating') },
         { icon: 'folder-open-outline',   iconColor: '#D97706', iconBg: '#FEF3C7', label: 'Uploaded Syllabi', sub: '3 files', action: () => Alert.alert('Syllabi', 'CS 3354, Physics 2325, History 1301') },
         { icon: 'trash-outline',         iconColor: '#DC2626', iconBg: '#FEE2E2', label: 'Clear Chat History', sub: '', action: () => Alert.alert('Clear Chat', 'Are you sure? This cannot be undone.', [{ text: 'Cancel' }, { text: 'Clear', style: 'destructive' }]) },
       ],
@@ -136,7 +136,7 @@ export default function SettingsScreen({ netId, onLogout }: Props) {
                     <Switch
                       value={getToggleVal(item.label)}
                       onValueChange={v => setToggleVal(item.label, v)}
-                      trackColor={{ false: '#E5E7EB', true: RED }}
+                      trackColor={{ false: '#E5E7EB', true: ACCENT }}
                       thumbColor="white"
                     />
                   ) : (
