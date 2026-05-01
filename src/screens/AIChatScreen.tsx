@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated, useWindowDimensions,
 } from 'react-native';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PROMPT_CHIPS, AI_REPLIES, nowTime } from '../data';
 import { shared, ACCENT } from '../styles/shared';
 import Header from '../components/Header';
@@ -26,9 +27,27 @@ const INITIAL_MSGS: ChatMsg[] = [
 
 export default function AIChatScreen() {
   const [messages, setMessages] = useState<ChatMsg[]>(INITIAL_MSGS);
-  const [input, setInput]       = useState('');
-  const [typing, setTyping]     = useState(false);
-  const scrollRef               = useRef<ScrollView>(null);
+  const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const chatSessionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        systemInstruction: "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics.",
+      });
+      chatSessionRef.current = model.startChat({
+        history: INITIAL_MSGS.map(m => ({
+          role: m.role === 'ai' ? 'model' : 'user',
+          parts: [{ text: m.text }],
+        })),
+      });
+    }
+  }, []);
 
   // Animated typing dots
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -41,14 +60,14 @@ export default function AIChatScreen() {
       Animated.loop(Animated.sequence([
         Animated.delay(delay),
         Animated.timing(d, { toValue: -6, duration: 280, useNativeDriver: true }),
-        Animated.timing(d, { toValue:  0, duration: 280, useNativeDriver: true }),
+        Animated.timing(d, { toValue: 0, duration: 280, useNativeDriver: true }),
       ]));
     const a = Animated.parallel([anim(dot1, 0), anim(dot2, 140), anim(dot3, 280)]);
     a.start();
     return () => a.stop();
   }, [typing]);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     const t = text.trim();
     if (!t || typing) return;
     const userMsg: ChatMsg = { id: Date.now().toString(), role: 'user', text: t, time: nowTime() };
@@ -57,14 +76,22 @@ export default function AIChatScreen() {
     setTyping(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
-    setTimeout(() => {
-      const reply = AI_REPLIES[t] ??
-        `That's a great question! Let me analyze your schedule and courses.\n\nBased on your current workload, I can see you have several items needing attention. Would you like me to:\n\n• 📋 Prioritize your overdue tasks\n• 📅 Build a study schedule\n• 🧮 Calculate your current grades\n\nJust let me know!`;
+    try {
+      if (!chatSessionRef.current) {
+        throw new Error("Chat session not initialized. Missing API key?");
+      }
+      const result = await chatSessionRef.current.sendMessage(t);
+      const reply = result.response.text();
       const aiMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: reply, time: nowTime() };
       setMessages(prev => [...prev, aiMsg]);
+    } catch (error) {
+      console.error(error);
+      const errMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: "Sorry, I'm having trouble connecting right now.", time: nowTime() };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
       setTyping(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    }, 1800);
+    }
   };
 
   const { width } = useWindowDimensions();
@@ -81,7 +108,20 @@ export default function AIChatScreen() {
           <Text style={s.aiName}>MiniTA Assistant</Text>
           <Text style={s.aiStatus}>{typing ? '● Typing…' : '● Online · Ready to help'}</Text>
         </View>
-        <TouchableOpacity style={s.clearBtn} onPress={() => setMessages([INITIAL_MSGS[0]])}>
+        <TouchableOpacity style={s.clearBtn} onPress={() => {
+          setMessages([INITIAL_MSGS[0]]);
+          const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+          if (apiKey) {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({
+              model: 'gemini-1.5-flash',
+              systemInstruction: "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics",
+            });
+            chatSessionRef.current = model.startChat({
+              history: [{ role: 'model', parts: [{ text: INITIAL_MSGS[0].text }] }],
+            });
+          }
+        }}>
           <Text style={s.clearBtnTxt}>Clear</Text>
         </TouchableOpacity>
       </View>
