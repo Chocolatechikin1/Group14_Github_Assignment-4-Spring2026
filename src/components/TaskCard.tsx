@@ -33,7 +33,7 @@ export default function TaskCard({ task, checked, onCheck, onViewDetails }: Prop
           </View>
         ) : task.isPersonal ? (
           <View style={[s.daysBadge, { backgroundColor: '#F3E8FF' }]}>
-            <Text style={[s.daysTxt, { color: '#7C3AED' }]}>PERSONAL</Text>
+            <Text style={[s.daysTxt, { color: '#BC0001' }]}>PERSONAL</Text>
           </View>
         ) : (
           <View style={[s.daysBadge, daysColor(task.daysLabel) as any]}>
@@ -46,12 +46,18 @@ export default function TaskCard({ task, checked, onCheck, onViewDetails }: Prop
       <Text style={[s.title, checked && s.titleDone]}>{task.title}</Text>
 
       {/* Meta */}
-      <Text style={s.meta}>
-        <Text style={s.metaKey}>Course: </Text>
-        <Text style={{ color: course.color, fontWeight: '700' }}>{course.label}</Text>
-      </Text>
-      <Text style={s.meta}><Text style={s.metaKey}>Due: </Text>{task.due}</Text>
-      <Text style={s.meta}><Text style={s.metaKey}>Type: </Text>{task.type}</Text>
+      <View style={s.meta}>
+        <Text style={s.metaText}>
+          <Text style={s.metaKey}>Course: </Text>
+          <Text style={{ color: course.color, fontWeight: '600' }}>{course.label}</Text>
+        </Text>
+      </View>
+      <View style={s.meta}>
+        <Text style={s.metaText}><Text style={s.metaKey}>Due: </Text>{task.due}</Text>
+      </View>
+      <View style={s.meta}>
+        <Text style={s.metaText}><Text style={s.metaKey}>Type: </Text>{task.type}</Text>
+      </View>
 
       {/* CTA */}
       <TouchableOpacity
@@ -67,17 +73,15 @@ export default function TaskCard({ task, checked, onCheck, onViewDetails }: Prop
 const s = StyleSheet.create({
   card: {
     backgroundColor: 'white',
-    borderRadius: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     borderLeftWidth: 4,
-    padding: 14,
+    padding: 16,
     marginBottom: 12,
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8 },
-      android: { elevation: 3 },
-    }),
   },
-  cardDone:    { opacity: 0.6 },
-  headerRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
+  cardDone:    { opacity: 0.5 },
+  headerRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
   checkbox:    { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
   checkMark:   { color: 'white', fontSize: 11, fontWeight: '700' },
   dot:         { width: 10, height: 10, borderRadius: 5 },
@@ -85,10 +89,11 @@ const s = StyleSheet.create({
   overdueTxt:  { color: 'white', fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
   daysBadge:   { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   daysTxt:     { color: '#1D4ED8', fontSize: 10, fontWeight: '700' },
-  title:       { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 6 },
-  titleDone:   { textDecorationLine: 'line-through', color: '#9CA3AF' },
-  meta:        { fontSize: 12, color: '#6B7280', marginBottom: 2 },
-  metaKey:     { fontWeight: '600' },
-  viewBtn:     { marginTop: 12, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  viewBtnTxt:  { color: 'white', fontWeight: '700', fontSize: 13 },
+  title:       { fontSize: 16, fontWeight: '600', color: '#BC0001', marginBottom: 8 },
+  titleDone:   { textDecorationLine: 'line-through', color: '#94a3b8' },
+  meta:        { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  metaText:    { fontSize: 13, color: '#64748b' },
+  metaKey:     { fontWeight: '500' },
+  viewBtn:     { marginTop: 16, paddingVertical: 12, borderRadius: 10, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  viewBtnTxt:  { color: 'white', fontWeight: '600', fontSize: 14 },
 });

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  StyleSheet, SafeAreaView, useWindowDimensions,
 } from 'react-native';
 import {
   CAL_EVENTS, CalEvent, COURSES,
   WEEK_DAYS, WEEK_DATES, HOURS, HOUR_LABELS, formatHour,
 } from '../data';
-import { shared, RED } from '../styles/shared';
+import { shared, ACCENT } from '../styles/shared';
 import Header from '../components/Header';
 import EventDetailModal from '../components/modals/EventDetailModal';
 import ConflictModal from '../components/modals/ConflictModal';
@@ -19,6 +19,9 @@ export default function CalendarScreen() {
 
   const isConflictDay = selectedDay === 2; // Wednesday
   const dayEvents     = CAL_EVENTS.filter(e => e.day === selectedDay + 1);
+
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const handleDayPress = (idx: number) => {
     setSelectedDay(idx);
@@ -70,14 +73,14 @@ export default function CalendarScreen() {
 
       {/* Conflict banner */}
       {isConflictDay && (
-        <TouchableOpacity style={s.conflictBanner} onPress={() => setShowConflict(true)}>
+        <TouchableOpacity style={[s.conflictBanner, isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%', borderRadius: 8, marginTop: 12 }]} onPress={() => setShowConflict(true)}>
           <Text style={s.conflictBannerTxt}>⚠️  4 overlapping events today — tap for details</Text>
           <Text style={s.conflictBannerChev}>›</Text>
         </TouchableOpacity>
       )}
 
       {/* Day label */}
-      <View style={s.dayHeader}>
+      <View style={[s.dayHeader, isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%', borderTopLeftRadius: 12, borderTopRightRadius: 12, marginTop: 24 }]}>
         <Text style={s.dayHeaderTxt}>
           {WEEK_DAYS[selectedDay]}, March {WEEK_DATES[selectedDay]}
         </Text>
@@ -87,7 +90,7 @@ export default function CalendarScreen() {
       </View>
 
       {/* Time grid */}
-      <ScrollView style={shared.body} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[shared.body, isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%', backgroundColor: 'white', borderBottomLeftRadius: 12, borderBottomRightRadius: 12, paddingBottom: 20 }]} showsVerticalScrollIndicator={false}>
         {dayEvents.length === 0 && (
           <View style={s.emptyDay}>
             <Text style={{ fontSize: 40, marginBottom: 10 }}>📭</Text>
@@ -137,24 +140,24 @@ export default function CalendarScreen() {
 }
 
 const s = StyleSheet.create({
-  titleRow:           { backgroundColor: RED, paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleRow:           { backgroundColor: ACCENT, paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title:              { color: 'white', fontSize: 20, fontWeight: '800' },
   subtitle:           { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 },
   weekPill:           { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   weekPillTxt:        { color: 'white', fontSize: 12, fontWeight: '700' },
 
-  daySelectorWrap:    { backgroundColor: RED, maxHeight: 76 },
+  daySelectorWrap:    { backgroundColor: ACCENT, maxHeight: 76 },
   daySelectorContent: { paddingHorizontal: 10, paddingBottom: 12, gap: 6, flexDirection: 'row', alignItems: 'center' },
   dayBtn:             { alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, minWidth: 46 },
   dayBtnActive:       { backgroundColor: 'white' },
   dayBtnConflict:     { backgroundColor: 'rgba(254,226,226,0.25)', borderWidth: 1.5, borderColor: 'rgba(254,202,202,0.6)' },
   dayLabel:           { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: '700' },
-  dayLabelActive:     { color: RED, fontWeight: '800' },
+  dayLabelActive:     { color: ACCENT, fontWeight: '800' },
   dayDate:            { color: 'white', fontSize: 18, fontWeight: '700', marginTop: 2 },
-  dayDateActive:      { color: RED },
+  dayDateActive:      { color: ACCENT },
   conflictMark:       { fontSize: 10, marginTop: 2 },
   eventDot:           { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)', marginTop: 3 },
-  eventDotActive:     { backgroundColor: RED },
+  eventDotActive:     { backgroundColor: ACCENT },
 
   conflictBanner:     { backgroundColor: '#FEF3C7', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#FCD34D' },
   conflictBannerTxt:  { flex: 1, fontSize: 12, color: '#92400E', fontWeight: '600' },

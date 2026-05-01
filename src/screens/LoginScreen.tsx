@@ -5,7 +5,7 @@ import {
   ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RED } from '../styles/shared';
+import { ACCENT } from '../styles/shared';
 
 interface Props { onLogin: (netId: string) => void; }
 type Tab = 'login' | 'register';
@@ -84,7 +84,7 @@ export default function LoginScreen({ onLogin }: Props) {
             {tab === 'login' && <>
               <Text style={s.fieldLabel}>NetID</Text>
               <View style={inputStyle('netid')}>
-                <Ionicons name="person-outline" size={18} color={focused === 'netid' ? RED : '#9CA3AF'} style={s.icon} />
+                <Ionicons name="person-outline" size={18} color={focused === 'netid' ? ACCENT : '#9CA3AF'} style={s.icon} />
                 <TextInput
                   style={s.input}
                   placeholder="e.g., abc1234"
@@ -102,7 +102,7 @@ export default function LoginScreen({ onLogin }: Props) {
 
               <Text style={s.fieldLabel}>Password</Text>
               <View style={inputStyle('password')}>
-                <Ionicons name="lock-closed-outline" size={18} color={focused === 'password' ? RED : '#9CA3AF'} style={s.icon} />
+                <Ionicons name="lock-closed-outline" size={18} color={focused === 'password' ? ACCENT : '#9CA3AF'} style={s.icon} />
                 <TextInput
                   style={s.input}
                   placeholder="Enter your password"
@@ -171,7 +171,7 @@ export default function LoginScreen({ onLogin }: Props) {
             {tab === 'register' && <>
               <Text style={s.fieldLabel}>Full Name</Text>
               <View style={inputStyle('name')}>
-                <Ionicons name="person-outline" size={18} color={focused === 'name' ? RED : '#9CA3AF'} style={s.icon} />
+                <Ionicons name="person-outline" size={18} color={focused === 'name' ? ACCENT : '#9CA3AF'} style={s.icon} />
                 <TextInput
                   style={s.input}
                   placeholder="Your full name"
@@ -187,7 +187,7 @@ export default function LoginScreen({ onLogin }: Props) {
 
               <Text style={s.fieldLabel}>University ID</Text>
               <View style={inputStyle('uid')}>
-                <Ionicons name="card-outline" size={18} color={focused === 'uid' ? RED : '#9CA3AF'} style={s.icon} />
+                <Ionicons name="card-outline" size={18} color={focused === 'uid' ? ACCENT : '#9CA3AF'} style={s.icon} />
                 <TextInput
                   style={s.input}
                   placeholder="e.g., S12345678"
@@ -205,7 +205,7 @@ export default function LoginScreen({ onLogin }: Props) {
 
               <Text style={s.fieldLabel}>Password</Text>
               <View style={inputStyle('rpw')}>
-                <Ionicons name="lock-closed-outline" size={18} color={focused === 'rpw' ? RED : '#9CA3AF'} style={s.icon} />
+                <Ionicons name="lock-closed-outline" size={18} color={focused === 'rpw' ? ACCENT : '#9CA3AF'} style={s.icon} />
                 <TextInput
                   style={s.input}
                   placeholder="Create a password"
@@ -250,7 +250,7 @@ export default function LoginScreen({ onLogin }: Props) {
 }
 
 const s = StyleSheet.create({
-  root:   { flex: 1, backgroundColor: RED },
+  root:   { flex: 1, backgroundColor: ACCENT },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 36 },
 
   // Logo
@@ -258,7 +258,7 @@ const s = StyleSheet.create({
   logoCard:  { width: 82, height: 82, backgroundColor: 'white', borderRadius: 24,
                alignItems: 'center', justifyContent: 'center', marginBottom: 14, position: 'relative',
                shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 16, elevation: 14 },
-  logoInner: { width: 54, height: 54, backgroundColor: RED, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  logoInner: { width: 54, height: 54, backgroundColor: ACCENT, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   logoTA:    { color: 'white', fontSize: 22, fontWeight: '900', letterSpacing: -1 },
   logoDot:   { position: 'absolute', bottom: 10, right: 10, width: 15, height: 15,
                borderRadius: 8, backgroundColor: '#FBBF24', borderWidth: 2.5, borderColor: 'white' },
@@ -267,12 +267,13 @@ const s = StyleSheet.create({
 
   // Card
   card: { backgroundColor: 'white', borderRadius: 24, padding: 22,
-          shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 28, elevation: 14 },
+          shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 28, elevation: 14,
+          maxWidth: 400, width: '100%', alignSelf: 'center' },
 
   // Tab switcher
   tabRow:      { flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 14, padding: 4, marginBottom: 22 },
   tabBtn:      { flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: 'center' },
-  tabBtnActive:{ backgroundColor: RED, shadowColor: RED,
+  tabBtnActive:{ backgroundColor: ACCENT, shadowColor: ACCENT,
                  shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 5 },
   tabTxt:      { fontSize: 14, fontWeight: '700', color: '#6B7280' },
   tabTxtActive:{ color: 'white' },
@@ -282,7 +283,7 @@ const s = StyleSheet.create({
   hint:       { fontSize: 12, color: '#9CA3AF', marginTop: -10, marginBottom: 14 },
   inputWrap:  { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E5E7EB',
                 borderRadius: 13, paddingHorizontal: 14, height: 54, marginBottom: 16, backgroundColor: '#FAFAFA' },
-  inputWrapFocused: { borderColor: RED, backgroundColor: 'white' },
+  inputWrapFocused: { borderColor: ACCENT, backgroundColor: 'white' },
   icon:       { marginRight: 10 },
   input:      { flex: 1, fontSize: 15, color: '#111827' },
   eyeBtn:     { padding: 4 },
@@ -291,14 +292,14 @@ const s = StyleSheet.create({
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: -4 },
   remRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox:   { width: 18, height: 18, borderRadius: 5, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
-  checkboxOn: { backgroundColor: RED, borderColor: RED },
+  checkboxOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   remTxt:     { fontSize: 13, color: '#374151', fontWeight: '500' },
-  forgotTxt:  { fontSize: 13, color: RED, fontWeight: '700' },
+  forgotTxt:  { fontSize: 13, color: ACCENT, fontWeight: '700' },
 
   // Sign in button
-  signInBtn:  { backgroundColor: RED, borderRadius: 14, height: 54,
+  signInBtn:  { backgroundColor: ACCENT, borderRadius: 14, height: 54,
                 alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-                shadowColor: RED, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
+                shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
   btnDim:     { opacity: 0.65 },
   signInTxt:  { color: 'white', fontSize: 16, fontWeight: '800', letterSpacing: 0.4 },
 
@@ -322,7 +323,7 @@ const s = StyleSheet.create({
 
   // Register
   switchTxt:  { textAlign: 'center', color: '#6B7280', fontSize: 13, marginTop: 16 },
-  switchLink: { color: RED, fontWeight: '700' },
+  switchLink: { color: ACCENT, fontWeight: '700' },
 
   footer: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 26 },
 });
