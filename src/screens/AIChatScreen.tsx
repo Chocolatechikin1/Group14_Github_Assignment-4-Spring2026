@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated,
+  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated, useWindowDimensions,
 } from 'react-native';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PROMPT_CHIPS, AI_REPLIES, nowTime } from '../data';
-import { shared, RED } from '../styles/shared';
+import { shared, ACCENT } from '../styles/shared';
 import Header from '../components/Header';
 
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
@@ -94,12 +94,15 @@ export default function AIChatScreen() {
     }
   };
 
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
   return (
     <SafeAreaView style={shared.screen}>
       <Header />
 
       {/* AI header strip */}
-      <View style={s.aiStrip}>
+      <View style={[s.aiStrip, isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%', borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }]}>
         <View style={s.aiAvatar}><Text style={s.aiAvatarTxt}>AI</Text></View>
         <View style={{ flex: 1 }}>
           <Text style={s.aiName}>MiniTA Assistant</Text>
@@ -124,7 +127,7 @@ export default function AIChatScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={[isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%' }, { flex: 1 }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
@@ -217,39 +220,39 @@ export default function AIChatScreen() {
 }
 
 const s = StyleSheet.create({
-  aiStrip: { backgroundColor: '#7C3AED', paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  aiAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  aiAvatarTxt: { color: 'white', fontWeight: '800', fontSize: 13 },
-  aiName: { color: 'white', fontWeight: '700', fontSize: 15 },
-  aiStatus: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 1 },
-  clearBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  clearBtnTxt: { color: 'white', fontSize: 12, fontWeight: '600' },
+  aiStrip:            { backgroundColor: ACCENT, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  aiAvatar:           { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  aiAvatarTxt:        { color: 'white', fontWeight: '800', fontSize: 13 },
+  aiName:             { color: 'white', fontWeight: '700', fontSize: 15 },
+  aiStatus:           { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 1 },
+  clearBtn:           { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  clearBtnTxt:        { color: 'white', fontSize: 12, fontWeight: '600' },
 
-  chatBody: { flex: 1, backgroundColor: '#F9FAFB' },
-  chatBodyContent: { padding: 16 },
+  chatBody:           { flex: 1, backgroundColor: '#F9FAFB' },
+  chatBodyContent:    { padding: 16 },
 
-  msgRow: { flexDirection: 'row', marginBottom: 16, gap: 8, alignItems: 'flex-end' },
-  msgRowUser: { flexDirection: 'row-reverse' },
-  aiBubbleAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  aiBubbleAvatarTxt: { color: 'white', fontWeight: '800', fontSize: 10 },
+  msgRow:             { flexDirection: 'row', marginBottom: 16, gap: 8, alignItems: 'flex-end' },
+  msgRowUser:         { flexDirection: 'row-reverse' },
+  aiBubbleAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  aiBubbleAvatarTxt:  { color: 'white', fontWeight: '800', fontSize: 10 },
 
-  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleAI: { backgroundColor: 'white', borderWidth: 1.5, borderColor: '#E5E7EB', borderBottomLeftRadius: 4 },
-  bubbleUser: { backgroundColor: RED, borderBottomRightRadius: 4 },
-  bubbleTxt: { fontSize: 14, color: '#111827', lineHeight: 21 },
-  bubbleTxtUser: { color: 'white' },
-  msgTime: { fontSize: 10, color: '#9CA3AF', marginTop: 4, marginHorizontal: 4 },
+  bubble:             { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  bubbleAI:           { backgroundColor: 'white', borderWidth: 1.5, borderColor: '#E5E7EB', borderBottomLeftRadius: 4 },
+  bubbleUser:         { backgroundColor: ACCENT, borderBottomRightRadius: 4 },
+  bubbleTxt:          { fontSize: 14, color: '#111827', lineHeight: 21 },
+  bubbleTxtUser:      { color: 'white' },
+  msgTime:            { fontSize: 10, color: '#9CA3AF', marginTop: 4, marginHorizontal: 4 },
 
-  typingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF' },
+  typingDot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF' },
 
-  chipsSection: { backgroundColor: 'white', paddingTop: 10, paddingBottom: 8, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  chipsSectionLabel: { fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  promptChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  promptChipTxt: { color: 'white', fontWeight: '700', fontSize: 12 },
+  chipsSection:       { backgroundColor: 'white', paddingTop: 10, paddingBottom: 8, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  chipsSectionLabel:  { fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  promptChip:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  promptChipTxt:      { color: 'white', fontWeight: '700', fontSize: 12 },
 
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  attachBtn: { padding: 8 },
-  chatInput: { flex: 1, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, color: '#111827', maxHeight: 100 },
-  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
-  sendBtnDisabled: { backgroundColor: '#D1D5DB' },
+  inputRow:           { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  attachBtn:          { padding: 8 },
+  chatInput:          { flex: 1, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, color: '#111827', maxHeight: 100 },
+  sendBtn:            { width: 42, height: 42, borderRadius: 21, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled:    { backgroundColor: '#D1D5DB' },
 });

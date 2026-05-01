@@ -1,6 +1,6 @@
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const RED = '#BC0001';
+export const ACCENT = '#BC0001';
 
 // ─── Courses ─────────────────────────────────────────────────────────────────
 
@@ -86,6 +86,11 @@ export const CAL_EVENTS: CalEvent[] = [
   { id: 'e6', title: 'History Essay Due',  course: 'HIST', day: 5, startHour: 14,   endHour: 14.5, detail: 'Submit via Canvas by 2:00 PM. No late submissions accepted without dean approval.' },
   { id: 'e7', title: 'Study: Finals Prep', course: 'SELF', day: 6, startHour: 10,   endHour: 12.5, detail: 'Library Room 204. Finals prep — all subjects. Bring notes, past exams, and highlighters.' },
 ];
+
+export function addCalendarEvent(ev: Omit<CalEvent, 'id'>) {
+  const newId = `ev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  CAL_EVENTS.push({ ...ev, id: newId });
+}
 
 // ─── AI Responses ─────────────────────────────────────────────────────────────
 
