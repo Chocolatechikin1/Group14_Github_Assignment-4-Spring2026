@@ -1,16 +1,17 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Task, COURSES } from '../../data';
 import { shared } from '../../styles/shared';
 
+// Assignment detail modal mirrors the dashboard card and can toggle completion.
 interface Props {
   task: Task | null;
-  isChecked: boolean;
+  isComplete: boolean;
   onClose: () => void;
-  onComplete: (id: string) => void;
+  onToggleComplete: (id: string) => void;
 }
 
-export default function TaskDetailModal({ task, isChecked, onClose, onComplete }: Props) {
+export default function TaskDetailModal({ task, isComplete, onClose, onToggleComplete }: Props) {
   if (!task) return null;
   const course = COURSES[task.course];
 
@@ -37,6 +38,13 @@ export default function TaskDetailModal({ task, isChecked, onClose, onComplete }
             <Text style={[shared.coursePillTxt, { color: course.color }]}>{course.label}</Text>
           </View>
 
+          {/* Status banner — visible when toggled complete */}
+          {isComplete && (
+            <View style={s.completeBanner}>
+              <Text style={s.completeBannerTxt}>✓  Marked as complete</Text>
+            </View>
+          )}
+
           {/* Meta grid */}
           <View style={shared.metaGrid}>
             <View style={shared.metaCell}>
@@ -49,8 +57,8 @@ export default function TaskDetailModal({ task, isChecked, onClose, onComplete }
             </View>
             <View style={shared.metaCell}>
               <Text style={shared.metaLabel}>Status</Text>
-              <Text style={[shared.metaVal, { color: task.status === 'overdue' ? '#DC2626' : '#16A34A' }]}>
-                {task.status === 'overdue' ? '⚠️ Overdue' : `⏳ ${task.daysLabel}`}
+              <Text style={[shared.metaVal, { color: isComplete ? '#16A34A' : task.status === 'overdue' ? '#DC2626' : '#16A34A' }]}>
+                {isComplete ? '✅ Done' : task.status === 'overdue' ? '⚠️ Overdue' : `⏳ ${task.daysLabel}`}
               </Text>
             </View>
           </View>
@@ -59,12 +67,17 @@ export default function TaskDetailModal({ task, isChecked, onClose, onComplete }
           <Text style={shared.detailHead}>Assignment Details</Text>
           <Text style={shared.detailTxt}>{task.detail}</Text>
 
-          {/* CTA */}
+          {/* Toggle CTA */}
           <TouchableOpacity
-            style={[shared.ctaBtn, { backgroundColor: isChecked ? '#9CA3AF' : course.color }]}
-            onPress={() => { onComplete(task.id); onClose(); }}
+            style={[
+              shared.ctaBtn,
+              { backgroundColor: isComplete ? '#9CA3AF' : course.color },
+            ]}
+            onPress={() => onToggleComplete(task.id)}
           >
-            <Text style={shared.ctaTxt}>{isChecked ? '⟲  Mark as Incomplete' : '✓  Mark as Complete'}</Text>
+            <Text style={shared.ctaTxt}>
+              {isComplete ? '↺  Mark as Incomplete' : '✓  Mark as Complete'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={shared.dismissBtn} onPress={onClose}>
             <Text style={shared.dismissTxt}>Close</Text>
@@ -78,4 +91,6 @@ export default function TaskDetailModal({ task, isChecked, onClose, onComplete }
 const s = StyleSheet.create({
   sheet:    { maxHeight: '90%' },
   colorBar: { height: 6, borderRadius: 3, marginBottom: 16 },
+  completeBanner:    { backgroundColor: '#DCFCE7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 12, borderWidth: 1, borderColor: '#86EFAC' },
+  completeBannerTxt: { color: '#15803D', fontWeight: '700', fontSize: 13 },
 });

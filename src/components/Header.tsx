@@ -1,27 +1,37 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { shared, ACCENT } from '../styles/shared';
+import type { AppNotification } from '../../App';
+import { AppTheme, getSharedStyles } from '../styles/shared';
 
+// Shared top header with brand, notification dropdown, and profile shortcut.
 interface Props {
   right?: React.ReactNode;
   netId?: string;
+  theme: AppTheme;
+  notifications?: AppNotification[];
+  onProfilePress?: () => void;
 }
 
-export default function Header({ right, netId }: Props) {
-  const [hasNotif, setHasNotif] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+export default function Header({ right, netId, theme, notifications = [], onProfilePress }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // Use the NetID as a compact avatar label when a full profile photo is not available.
   const initials = netId ? netId.slice(0, 2).toUpperCase() : 'NG';
-
-  const handleNotifPress = () => {
-    setShowModal(true);
-    setHasNotif(false);
-  };
+  const shared = useMemo(() => getSharedStyles(theme), [theme]);
 
   return (
-    <>
+    <View style={styles.wrap}>
       <View style={shared.header}>
         <View style={shared.logoRow}>
+          <View style={shared.logoBox}>
+            <View style={[styles.logoCap, { backgroundColor: theme.colors.surface }]}>
+              <Ionicons name="school" size={16} color={theme.colors.brand} />
+            </View>
+            <View style={[styles.logoSpark, { backgroundColor: theme.colors.accent }]}>
+              <Ionicons name="sparkles" size={9} color="#6B3E00" />
+            </View>
+          </View>
           <View>
             <Text style={shared.logoName}>MiniTA</Text>
             <Text style={shared.logoSub}>AI Teaching Assistant</Text>
@@ -29,63 +39,141 @@ export default function Header({ right, netId }: Props) {
         </View>
         <View style={shared.headerRight}>
           {right}
-          <TouchableOpacity style={shared.notifWrap} onPress={handleNotifPress}>
-            <Ionicons name="notifications-outline" size={20} color="#6B7280" />
-            {hasNotif && <View style={shared.notifDot} />}
+          <TouchableOpacity style={shared.notifWrap} onPress={() => setMenuOpen(open => !open)}>
+            <Ionicons name="notifications-outline" size={22} color={theme.colors.header} />
+            {notifications.length > 0 ? <View style={shared.notifDot} /> : null}
           </TouchableOpacity>
-          <View style={shared.avatar}>
+          <TouchableOpacity style={shared.avatar} onPress={onProfilePress} activeOpacity={onProfilePress ? 0.75 : 1}>
             <Text style={shared.avatarTxt}>{initials}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 
-      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-start', alignItems: 'center', paddingTop: 60 }} activeOpacity={1} onPress={() => setShowModal(false)}>
-          <View style={{ backgroundColor: 'white', width: '90%', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Notifications</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 300 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                <View style={{ backgroundColor: '#FEE2E2', padding: 8, borderRadius: 10, marginRight: 12 }}>
-                  <Text style={{ fontSize: 16 }}>⚠️</Text>
+      {menuOpen ? (
+        <View style={[styles.dropdown, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={[styles.dropdownTitle, { color: theme.colors.text }]}>Email Notifications</Text>
+          {notifications.length === 0 ? (
+            <Text style={[styles.dropdownEmpty, { color: theme.colors.textMuted }]}>No notifications yet.</Text>
+          ) : (
+            <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
+              {notifications.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.dropdownItem,
+                    index < notifications.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+                  ]}
+                >
+                  <View style={[styles.dropdownDot, { backgroundColor: theme.colors.accent }]} />
+                  <View style={styles.dropdownCopy}>
+                    <Pressable
+                      onPress={() => {}}
+                      onHoverIn={() => setHoveredId(item.id)}
+                      onHoverOut={() => setHoveredId(current => (current === item.id ? null : current))}
+                      style={hoveredId === item.id ? styles.linkHover : undefined}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownItemTitle,
+                          {
+                            color: hoveredId === item.id ? theme.colors.accent : theme.colors.text,
+                            textDecorationLine: hoveredId === item.id ? 'underline' : 'none',
+                          },
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+                    </Pressable>
+                    <Text style={[styles.dropdownMessage, { color: theme.colors.textMuted }]}>{item.message}</Text>
+                  </View>
+                  <Text style={[styles.dropdownTime, { color: theme.colors.textSoft }]}>{item.time}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>3 Overdue Assignments</Text>
-                  <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>You have an overdue Physics HW, Calculus Problem Set, and History Essay.</Text>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>10 minutes ago</Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                <View style={{ backgroundColor: '#DBEAFE', padding: 8, borderRadius: 10, marginRight: 12 }}>
-                  <Text style={{ fontSize: 16 }}>📅</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Upcoming: Physics Quiz 2</Text>
-                  <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Don't forget! Physics Quiz 2 is scheduled for March 12 at 2:00 PM.</Text>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>2 hours ago</Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12 }}>
-                <View style={{ backgroundColor: '#F3E8FF', padding: 8, borderRadius: 10, marginRight: 12 }}>
-                  <Text style={{ fontSize: 16 }}>🤖</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>MiniTA Sync Complete</Text>
-                  <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Your Canvas schedule has been fully synchronized.</Text>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>Yesterday</Text>
-                </View>
-              </View>
+              ))}
             </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </>
+          )}
+        </View>
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: {
+    zIndex: 20,
+  },
+  logoCap: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoSpark: {
+    position: 'absolute',
+    right: -3,
+    top: -3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F7E9BF',
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 66,
+    right: 12,
+    width: 338,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  dropdownTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  dropdownEmpty: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  dropdownScroll: {
+    maxHeight: 250,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 10,
+  },
+  dropdownDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+  },
+  dropdownCopy: {
+    flex: 1,
+  },
+  dropdownItemTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  dropdownMessage: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  dropdownTime: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  linkHover: {
+    alignSelf: 'flex-start',
+  },
+});

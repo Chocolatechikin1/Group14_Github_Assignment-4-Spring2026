@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CalEvent, COURSES, formatHour } from '../../data';
 import { shared } from '../../styles/shared';
 
+// Detail sheet for legacy calendar events that already use CalEvent.
 interface Props {
   event: CalEvent | null;
   onClose: () => void;

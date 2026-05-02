@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated, useWindowDimensions,
+  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PROMPT_CHIPS, AI_REPLIES, nowTime } from '../data';
-import { shared, ACCENT } from '../styles/shared';
+import type { AppNotification } from '../../App';
+import { AI_REPLIES, PROMPT_CHIPS, nowTime } from '../data';
+import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
 
+// Messages use one shape so the UI can render seed messages and generated replies alike.
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
 
+// These starter messages make the AI page feel populated before the user sends a prompt.
 const INITIAL_MSGS: ChatMsg[] = [
   {
     id: 'm0', role: 'ai', time: '2:30 PM',
@@ -25,31 +27,44 @@ const INITIAL_MSGS: ChatMsg[] = [
   },
 ];
 
-export default function AIChatScreen() {
+function localMiniTAReply(prompt: string) {
+  const normalizedPrompt = prompt.trim().toLowerCase();
+  const exactMatch = Object.entries(AI_REPLIES).find(([key]) => key.toLowerCase() === normalizedPrompt);
+  if (exactMatch) return exactMatch[1];
+
+  // Keyword fallback keeps free-form typing useful without requiring an external API.
+  if (normalizedPrompt.includes('due') || normalizedPrompt.includes('deadline')) {
+    return AI_REPLIES['List all my upcoming due dates sorted by urgency.'];
+  }
+  if (normalizedPrompt.includes('study') || normalizedPrompt.includes('plan')) {
+    return AI_REPLIES['Generate a study plan for my upcoming exams.'];
+  }
+  if (normalizedPrompt.includes('grade') || normalizedPrompt.includes('final')) {
+    return AI_REPLIES['Calculate what grade I need on the final to get an A in CS 3354.'];
+  }
+  if (normalizedPrompt.includes('physics') || normalizedPrompt.includes('quiz') || normalizedPrompt.includes('exam tips')) {
+    return AI_REPLIES['Give me exam tips for Physics Quiz 2 covering Chapters 3–5.'];
+  }
+
+  return "I can help with study planning, due dates, grade calculations, and exam tips. Try asking what's due next, how to plan your study time, or what grade you need on the final.";
+}
+
+interface Props {
+  theme: AppTheme;
+  netId: string;
+  notifications: AppNotification[];
+  onOpenSettings: () => void;
+}
+
+export default function AIChatScreen({ theme, netId, notifications, onOpenSettings }: Props) {
+  const shared = getSharedStyles(theme);
+  // The chat state is local-only so this branch works without an API key or backend service.
   const [messages, setMessages] = useState<ChatMsg[]>(INITIAL_MSGS);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const chatSessionRef = useRef<any>(null);
 
-  useEffect(() => {
-    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    if (apiKey) {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics.",
-      });
-      chatSessionRef.current = model.startChat({
-        history: INITIAL_MSGS.map(m => ({
-          role: m.role === 'ai' ? 'model' : 'user',
-          parts: [{ text: m.text }],
-        })),
-      });
-    }
-  }, []);
-
-  // Animated typing dots
+  // Animated values drive the three bouncing dots in the "typing" indicator.
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -65,11 +80,12 @@ export default function AIChatScreen() {
     const a = Animated.parallel([anim(dot1, 0), anim(dot2, 140), anim(dot3, 280)]);
     a.start();
     return () => a.stop();
-  }, [typing]);
+  }, [typing, dot1, dot2, dot3]);
 
   const send = async (text: string) => {
     const t = text.trim();
     if (!t || typing) return;
+    // Add the user's message immediately, then append the assistant response after a short delay.
     const userMsg: ChatMsg = { id: Date.now().toString(), role: 'user', text: t, time: nowTime() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -77,16 +93,18 @@ export default function AIChatScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      if (!chatSessionRef.current) {
-        throw new Error("Chat session not initialized. Missing API key?");
-      }
-      const result = await chatSessionRef.current.sendMessage(t);
-      const reply = result.response.text();
+      // A short delay preserves the chat pacing users expect from an assistant.
+      await new Promise(resolve => setTimeout(resolve, 450));
+      const reply = localMiniTAReply(t);
       const aiMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: reply, time: nowTime() };
       setMessages(prev => [...prev, aiMsg]);
-    } catch (error) {
-      console.error(error);
-      const errMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: "Sorry, I'm having trouble connecting right now.", time: nowTime() };
+    } catch {
+      const errMsg: ChatMsg = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        text: "Sorry, I'm having trouble connecting right now.",
+        time: nowTime(),
+      };
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setTyping(false);
@@ -94,110 +112,106 @@ export default function AIChatScreen() {
     }
   };
 
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
-
   return (
     <SafeAreaView style={shared.screen}>
-      <Header />
+      <Header theme={theme} netId={netId} notifications={notifications} onProfilePress={onOpenSettings} />
 
-      {/* AI header strip */}
-      <View style={[s.aiStrip, isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%', borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }]}>
-        <View style={s.aiAvatar}><Text style={s.aiAvatarTxt}>AI</Text></View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.aiName}>MiniTA Assistant</Text>
-          <Text style={s.aiStatus}>{typing ? '● Typing…' : '● Online · Ready to help'}</Text>
+      <View style={s.pageShell}>
+        <View style={[s.aiStrip, { backgroundColor: theme.colors.brandSoft, borderBottomColor: theme.colors.border }]}>
+          <View style={[s.aiAvatar, { backgroundColor: theme.colors.accentSoft }]}>
+            <Text style={[s.aiAvatarTxt, { color: theme.colors.accent }]}>AI</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.aiName, { color: theme.colors.text }]}>MiniTA Assistant</Text>
+            <Text style={[s.aiStatus, { color: theme.colors.textMuted }]}>{typing ? 'Typing...' : 'Local demo mode | Ready to help'}</Text>
+          </View>
+          <TouchableOpacity style={[s.clearBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => {
+            setMessages([INITIAL_MSGS[0]]);
+          }}>
+            <Text style={[s.clearBtnTxt, { color: theme.colors.accent }]}>Clear</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={s.clearBtn} onPress={() => {
-          setMessages([INITIAL_MSGS[0]]);
-          const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-          if (apiKey) {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({
-              model: 'gemini-1.5-flash',
-              systemInstruction: "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics",
-            });
-            chatSessionRef.current = model.startChat({
-              history: [{ role: 'model', parts: [{ text: INITIAL_MSGS[0].text }] }],
-            });
-          }
-        }}>
-          <Text style={s.clearBtnTxt}>Clear</Text>
-        </TouchableOpacity>
-      </View>
 
-      <KeyboardAvoidingView
-        style={[isDesktop && { maxWidth: 800, marginHorizontal: 'auto', width: '100%' }, { flex: 1 }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        {/* Messages */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           ref={scrollRef}
-          style={s.chatBody}
+          style={[s.chatBody, { backgroundColor: theme.colors.body }]}
           contentContainerStyle={s.chatBodyContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map(msg => (
             <View key={msg.id} style={[s.msgRow, msg.role === 'user' && s.msgRowUser]}>
-              {msg.role === 'ai' && (
-                <View style={s.aiBubbleAvatar}><Text style={s.aiBubbleAvatarTxt}>AI</Text></View>
-              )}
+              {msg.role === 'ai' ? (
+                <View style={[s.aiBubbleAvatar, { backgroundColor: theme.colors.accentSoft }]}>
+                  <Text style={[s.aiBubbleAvatarTxt, { color: theme.colors.accent }]}>AI</Text>
+                </View>
+              ) : null}
               <View style={{ maxWidth: '78%' }}>
-                <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAI]}>
-                  <Text style={[s.bubbleTxt, msg.role === 'user' && s.bubbleTxtUser]}>
+                <View
+                  style={[
+                    s.bubble,
+                    msg.role === 'user'
+                      ? { backgroundColor: theme.colors.accentSoft, borderBottomRightRadius: 4 }
+                      : { backgroundColor: theme.colors.surface, borderWidth: 1.5, borderColor: theme.colors.border, borderBottomLeftRadius: 4 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      s.bubbleTxt,
+                      { color: msg.role === 'user' ? theme.colors.accent : theme.colors.text },
+                    ]}
+                  >
                     {msg.text}
                   </Text>
                 </View>
-                <Text style={[s.msgTime, msg.role === 'user' && { textAlign: 'right' }]}>{msg.time}</Text>
+                <Text style={[s.msgTime, { color: theme.colors.textSoft }, msg.role === 'user' && { textAlign: 'right' }]}>{msg.time}</Text>
               </View>
             </View>
           ))}
 
-          {/* Typing indicator */}
-          {typing && (
+          {typing ? (
             <View style={s.msgRow}>
-              <View style={s.aiBubbleAvatar}><Text style={s.aiBubbleAvatarTxt}>AI</Text></View>
-              <View style={[s.bubble, s.bubbleAI, { paddingVertical: 14, paddingHorizontal: 18 }]}>
+              <View style={[s.aiBubbleAvatar, { backgroundColor: theme.colors.accentSoft }]}>
+                <Text style={[s.aiBubbleAvatarTxt, { color: theme.colors.accent }]}>AI</Text>
+              </View>
+              <View style={[s.bubble, { backgroundColor: theme.colors.surface, borderWidth: 1.5, borderColor: theme.colors.border, paddingVertical: 14, paddingHorizontal: 18 }]}>
                 <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
                   {[dot1, dot2, dot3].map((d, i) => (
-                    <Animated.View key={i} style={[s.typingDot, { transform: [{ translateY: d }] }]} />
+                    <Animated.View key={i} style={[s.typingDot, { backgroundColor: theme.colors.textSoft, transform: [{ translateY: d }] }]} />
                   ))}
                 </View>
               </View>
             </View>
-          )}
+          ) : null}
           <View style={{ height: 8 }} />
         </ScrollView>
 
-        {/* Prompt chips */}
-        <View style={s.chipsSection}>
-          <Text style={s.chipsSectionLabel}>Suggested Actions</Text>
+        <View style={[s.chipsSection, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+          <Text style={[s.chipsSectionLabel, { color: theme.colors.textSoft }]}>Suggested Actions</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 16 }}>
             {PROMPT_CHIPS.map((chip, i) => (
               <TouchableOpacity
                 key={i}
-                style={[s.promptChip, { backgroundColor: chip.color }]}
+                style={[s.promptChip, { backgroundColor: theme.mode === 'dark' ? theme.colors.surfaceMuted : chip.color }]}
                 onPress={() => send(chip.msg)}
                 disabled={typing}
                 activeOpacity={0.8}
               >
-                <Text style={s.promptChipTxt}>{chip.label}</Text>
+                <Text style={[s.promptChipTxt, { color: theme.mode === 'dark' ? theme.colors.text : '#FFFFFF' }]}>{chip.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* Input row */}
-        <View style={s.inputRow}>
-          <TouchableOpacity style={s.attachBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={{ fontSize: 22 }}>📎</Text>
+        <View style={[s.inputRow, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+          <TouchableOpacity style={s.attachBtn}>
+            <Text style={{ fontSize: 18, color: theme.colors.accent }}>+</Text>
           </TouchableOpacity>
           <TextInput
-            style={s.chatInput}
-            placeholder="Type your question…"
-            placeholderTextColor="#9CA3AF"
+            style={[s.chatInput, { borderColor: theme.colors.border, color: theme.colors.text, backgroundColor: theme.colors.surfaceMuted }]}
+            placeholder="Type your question..."
+            placeholderTextColor={theme.colors.textSoft}
             value={input}
             onChangeText={setInput}
             multiline
@@ -207,52 +221,49 @@ export default function AIChatScreen() {
             blurOnSubmit
           />
           <TouchableOpacity
-            style={[s.sendBtn, (!input.trim() || typing) && s.sendBtnDisabled]}
+            style={[s.sendBtn, { backgroundColor: input.trim() && !typing ? theme.colors.accent : theme.colors.surfaceMuted }]}
             onPress={() => send(input)}
             disabled={!input.trim() || typing}
           >
-            <Text style={{ color: 'white', fontSize: 20 }}>➤</Text>
+            <Text style={{ color: '#111827', fontSize: 18 }}>{'>'}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  aiStrip:            { backgroundColor: ACCENT, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  aiAvatar:           { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  aiAvatarTxt:        { color: 'white', fontWeight: '800', fontSize: 13 },
-  aiName:             { color: 'white', fontWeight: '700', fontSize: 15 },
-  aiStatus:           { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 1 },
-  clearBtn:           { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  clearBtnTxt:        { color: 'white', fontSize: 12, fontWeight: '600' },
-
-  chatBody:           { flex: 1, backgroundColor: '#F9FAFB' },
-  chatBodyContent:    { padding: 16 },
-
-  msgRow:             { flexDirection: 'row', marginBottom: 16, gap: 8, alignItems: 'flex-end' },
-  msgRowUser:         { flexDirection: 'row-reverse' },
-  aiBubbleAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  aiBubbleAvatarTxt:  { color: 'white', fontWeight: '800', fontSize: 10 },
-
-  bubble:             { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleAI:           { backgroundColor: 'white', borderWidth: 1.5, borderColor: '#E5E7EB', borderBottomLeftRadius: 4 },
-  bubbleUser:         { backgroundColor: ACCENT, borderBottomRightRadius: 4 },
-  bubbleTxt:          { fontSize: 14, color: '#111827', lineHeight: 21 },
-  bubbleTxtUser:      { color: 'white' },
-  msgTime:            { fontSize: 10, color: '#9CA3AF', marginTop: 4, marginHorizontal: 4 },
-
-  typingDot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF' },
-
-  chipsSection:       { backgroundColor: 'white', paddingTop: 10, paddingBottom: 8, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  chipsSectionLabel:  { fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  promptChip:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  promptChipTxt:      { color: 'white', fontWeight: '700', fontSize: 12 },
-
-  inputRow:           { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  attachBtn:          { padding: 8 },
-  chatInput:          { flex: 1, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, color: '#111827', maxHeight: 100 },
-  sendBtn:            { width: 42, height: 42, borderRadius: 21, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center' },
-  sendBtnDisabled:    { backgroundColor: '#D1D5DB' },
+  pageShell: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 1120,
+    alignSelf: 'center',
+  },
+  aiStrip: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1 },
+  aiAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  aiAvatarTxt: { fontWeight: '800', fontSize: 13 },
+  aiName: { fontWeight: '700', fontSize: 15 },
+  aiStatus: { fontSize: 11, marginTop: 1 },
+  clearBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  clearBtnTxt: { fontSize: 12, fontWeight: '700' },
+  chatBody: { flex: 1 },
+  chatBodyContent: { padding: 16 },
+  msgRow: { flexDirection: 'row', marginBottom: 16, gap: 8, alignItems: 'flex-end' },
+  msgRowUser: { flexDirection: 'row-reverse' },
+  aiBubbleAvatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  aiBubbleAvatarTxt: { fontWeight: '800', fontSize: 10 },
+  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  bubbleTxt: { fontSize: 14, lineHeight: 21 },
+  msgTime: { fontSize: 10, marginTop: 4, marginHorizontal: 4 },
+  typingDot: { width: 8, height: 8, borderRadius: 4 },
+  chipsSection: { paddingTop: 10, paddingBottom: 8, paddingHorizontal: 16, borderTopWidth: 1 },
+  chipsSectionLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  promptChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  promptChipTxt: { fontWeight: '700', fontSize: 12 },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1 },
+  attachBtn: { padding: 8 },
+  chatInput: { flex: 1, borderWidth: 2, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, maxHeight: 100 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
 });
