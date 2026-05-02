@@ -213,6 +213,10 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
     Boolean(block.dateISO) &&
     weekDateISOs.includes(block.dateISO as string)
   );
+  const weekAllDaySeededEvents = monthEvents.filter(item =>
+    !item.blockId &&
+    weekDateISOs.includes(item.dateISO)
+  );
   const calendarTitle = viewMode === 'month'
     ? monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : `${week[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${week[6].toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
@@ -677,7 +681,8 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                     <Text style={[s.timeLabel, { color: theme.colors.textMuted }]}>All day</Text>
                     {week.map(date => {
                       const dateISO = dateToISO(date);
-                      const allDayItems = weekTaskBlocks.filter(block => block.dateISO === dateISO);
+                      const seededItems = weekAllDaySeededEvents.filter(item => item.dateISO === dateISO);
+                      const taskItems = weekTaskBlocks.filter(block => block.dateISO === dateISO);
                       return (
                         <View
                           key={`all-${dateISO}`}
@@ -687,7 +692,17 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                             hoverZone?.dateISO === dateISO && hoverZone.startHour === undefined && s.dropHover,
                           ]}
                         >
-                          {allDayItems.slice(0, 2).map(item => (
+                          {seededItems.map(item => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={[s.weekTaskChip, { backgroundColor: `${eventColor(item)}28` }]}
+                              onPress={() => selectEvent(item)}
+                            >
+                              <Text numberOfLines={1} style={[s.weekEventTitle, { color: eventColor(item) }]}>{item.title}</Text>
+                              <Text numberOfLines={1} style={[s.weekEventMeta, { color: theme.colors.textMuted }]}>{item.typeLabel}</Text>
+                            </TouchableOpacity>
+                          ))}
+                          {taskItems.map(item => (
                             <View
                               key={item.id}
                               {...makeWeekMoveHandlers(item, customBlockEvent(item), 'task-date')}
