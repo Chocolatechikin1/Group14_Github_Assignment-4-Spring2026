@@ -140,6 +140,7 @@ export default function App() {
             onOpenSettings={openSettings}
             extraBlocks={extraBlocks}
             addBlock={addBlock}
+            updateBlock={updateBlock}
           />
         );
       case 'AI Chat':
