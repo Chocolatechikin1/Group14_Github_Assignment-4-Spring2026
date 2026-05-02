@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AppNotification } from '../../App';
-import { PROMPT_CHIPS, AI_REPLIES, nowTime } from '../data';
+import { PROMPT_CHIPS, nowTime } from '../data';
 import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
 
@@ -88,21 +88,18 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      let reply = AI_REPLIES[t];
-      if (!reply && chatSessionRef.current) {
-        const result = await chatSessionRef.current.sendMessage(t);
-        reply = result.response.text();
+      if (!chatSessionRef.current) {
+        throw new Error('MiniTA AI is still waiting for an API key.');
       }
-      reply =
-        reply ??
-        `That's a great question. Based on your current workload, would you like me to:\n\n- Prioritize overdue tasks\n- Build a study schedule\n- Estimate your current grades\n\nJust let me know.`;
+      const result = await chatSessionRef.current.sendMessage(t);
+      const reply = result.response.text();
       const aiMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: reply, time: nowTime() };
       setMessages(prev => [...prev, aiMsg]);
     } catch {
       const errMsg: ChatMsg = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        text: "Sorry, I'm having trouble connecting right now. I can still help with the built-in study prompts.",
+        text: "Sorry, I'm not working right now. I'm trying to connect to the AI service, but the API key or connection is not available yet.",
         time: nowTime(),
       };
       setMessages(prev => [...prev, errMsg]);

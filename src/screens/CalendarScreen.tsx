@@ -5,10 +5,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { AppNotification } from '../../App';
-import { CAL_EVENTS, CalEvent, COURSES, ExtraBlock, extraBlockToCalEvent, formatHour } from '../data';
+import { COURSES, ExtraBlock, TASKS, TASK_DATES, formatHour } from '../data';
 import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
-import EventDetailModal from '../components/modals/EventDetailModal';
+import AddStudyModal from '../components/modals/AddStudyModal';
 
 interface Props {
   theme: AppTheme;
@@ -16,27 +16,21 @@ interface Props {
   notifications: AppNotification[];
   onOpenSettings: () => void;
   extraBlocks?: ExtraBlock[];
+  addBlock: (block: ExtraBlock) => void;
 }
 
-interface MonthItem extends CalEvent {
-  date: number;
+type MonthItem = {
+  id: string;
+  title: string;
+  course: keyof typeof COURSES;
+  dateISO: string;
+  startHour?: number;
+  endHour?: number;
+  detail: string;
   kind: 'assignment' | 'study' | 'exam' | 'personal';
-}
+};
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DAYS_IN_MARCH = 31;
-const FIRST_DAY_OFFSET = 0;
-
-const BASE_MONTH_EVENTS: MonthItem[] = [
-  { id: 'm1', title: 'Quiz', course: 'CS', date: 9, startHour: 11, endHour: 11.5, detail: 'CS quiz due in eLearning.', kind: 'exam', day: 1 },
-  { id: 'm2', title: 'Study Session', course: 'SELF', date: 10, startHour: 15, endHour: 16, detail: 'Review physics chapters 3-5.', kind: 'study', day: 2 },
-  { id: 'm3', title: 'Study Group', course: 'SELF', date: 11, startHour: 17, endHour: 18, detail: 'Group review for CS project planning.', kind: 'personal', day: 3 },
-  { id: 'm4', title: 'Essay Due', course: 'MATH', date: 12, startHour: 10, endHour: 11.5, detail: 'Calculus exam review block.', kind: 'assignment', day: 4 },
-  { id: 'm5', title: 'Lab Report', course: 'PHY', date: 13, startHour: 14, endHour: 14.5, detail: 'Submit the physics lab report.', kind: 'assignment', day: 5 },
-  { id: 'm6', title: 'Review Session', course: 'SELF', date: 14, startHour: 10, endHour: 12, detail: 'Weekend study review.', kind: 'study', day: 6 },
-  { id: 'm7', title: 'Midterm Exam', course: 'CS', date: 15, startHour: 9, endHour: 11, detail: 'CS 3354 midterm exam.', kind: 'exam', day: 7 },
-  { id: 'm8', title: 'Project Presentation', course: 'PHY', date: 16, startHour: 13, endHour: 14, detail: 'Project presentation prep.', kind: 'assignment', day: 1 },
-];
 
 function eventColor(item: MonthItem) {
   if (item.kind === 'exam') return '#EF4444';
@@ -45,31 +39,85 @@ function eventColor(item: MonthItem) {
   return COURSES[item.course]?.color ?? '#3B82F6';
 }
 
-function buildCells() {
-  const cells: (number | null)[] = Array.from({ length: FIRST_DAY_OFFSET }, () => null);
-  for (let day = 1; day <= DAYS_IN_MARCH; day += 1) cells.push(day);
+function monthCells(monthDate: Date) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const days = new Date(year, month + 1, 0).getDate();
+  const offset = new Date(year, month, 1).getDay();
+  const cells: (number | null)[] = Array.from({ length: offset }, () => null);
+  for (let day = 1; day <= days; day += 1) cells.push(day);
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
 }
 
-export default function CalendarScreen({ theme, netId, notifications, onOpenSettings, extraBlocks = [] }: Props) {
+function toISO(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function longDate(dateISO: string) {
+  return new Date(`${dateISO}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function taskKind(type: string): MonthItem['kind'] {
+  if (type.toLowerCase().includes('exam') || type.toLowerCase().includes('quiz')) return 'exam';
+  if (type.toLowerCase().includes('study')) return 'study';
+  return 'assignment';
+}
+
+export default function CalendarScreen({ theme, netId, notifications, onOpenSettings, extraBlocks = [], addBlock }: Props) {
   const shared = useMemo(() => getSharedStyles(theme), [theme]);
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
+  const [monthDate, setMonthDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<MonthItem | null>(null);
+  const [showAddStudy, setShowAddStudy] = useState(false);
 
   const monthEvents = useMemo<MonthItem[]>(() => {
-    const converted = extraBlocks.map(block => ({
-      ...extraBlockToCalEvent(block),
-      date: 8 + block.day,
-      kind: 'personal' as const,
+    const taskEvents = TASKS.map(task => ({
+      id: `task-${task.id}`,
+      title: task.title,
+      course: task.course,
+      dateISO: TASK_DATES[task.id],
+      detail: task.detail,
+      kind: taskKind(task.type),
     }));
-    return [...BASE_MONTH_EVENTS, ...converted];
+    const blockEvents = extraBlocks
+      .filter(block => block.dateISO)
+      .map(block => ({
+        id: `block-${block.id}`,
+        title: block.title,
+        course: block.course,
+        dateISO: block.dateISO as string,
+        startHour: block.startHour,
+        endHour: block.endHour,
+        detail: block.notes || 'Personal study block.',
+        kind: 'personal' as const,
+      }));
+    return [...taskEvents, ...blockEvents];
   }, [extraBlocks]);
 
-  const cells = useMemo(buildCells, []);
-  const selectedEvents = selectedDate ? monthEvents.filter(item => item.date === selectedDate) : [];
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const cells = useMemo(() => monthCells(monthDate), [monthDate]);
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const selectedEvents = selectedDate ? monthEvents.filter(item => item.dateISO === selectedDate) : [];
+
+  const selectEvent = (item: MonthItem) => {
+    setSelectedDate(item.dateISO);
+    setSelectedEvent(item);
+  };
+
+  const goToday = () => {
+    const today = new Date();
+    setMonthDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedDate(today.toISOString().slice(0, 10));
+  };
 
   return (
     <SafeAreaView style={shared.screen}>
@@ -80,11 +128,19 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
           <View style={[s.shell, isWide && s.shellWide]}>
             <View style={[s.calendarCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <View style={s.monthHeader}>
-                <Text style={[s.monthTitle, { color: theme.colors.text }]}>March 2026</Text>
+                <Text style={[s.monthTitle, { color: theme.colors.text }]}>
+                  {monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                </Text>
                 <View style={s.monthControls}>
-                  <Ionicons name="chevron-back" size={16} color={theme.colors.textSoft} />
-                  <Text style={[s.todayLabel, { color: theme.colors.textMuted }]}>Today</Text>
-                  <Ionicons name="chevron-forward" size={16} color={theme.colors.textSoft} />
+                  <TouchableOpacity onPress={() => setMonthDate(new Date(year, month - 1, 1))}>
+                    <Ionicons name="chevron-back" size={16} color={theme.colors.textSoft} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={goToday}>
+                    <Text style={[s.todayLabel, { color: theme.colors.textMuted }]}>Today</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setMonthDate(new Date(year, month + 1, 1))}>
+                    <Ionicons name="chevron-forward" size={16} color={theme.colors.textSoft} />
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -96,15 +152,19 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
 
               <View style={[s.grid, { borderColor: theme.colors.border }]}>
                 {cells.map((date, index) => {
-                  const items = date ? monthEvents.filter(item => item.date === date) : [];
-                  const isSelected = date === selectedDate;
-                  const isToday = date === 7;
+                  const dateISO = date ? toISO(year, month, date) : '';
+                  const items = date ? monthEvents.filter(item => item.dateISO === dateISO) : [];
+                  const isSelected = dateISO === selectedDate;
+                  const isToday = dateISO === todayISO;
                   return (
                     <TouchableOpacity
                       key={`${date ?? 'empty'}-${index}`}
                       activeOpacity={date ? 0.78 : 1}
                       disabled={!date}
-                      onPress={() => setSelectedDate(date)}
+                      onPress={() => {
+                        setSelectedDate(dateISO);
+                        setSelectedEvent(items[0] ?? null);
+                      }}
                       style={[
                         s.dayCell,
                         { borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
@@ -118,11 +178,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                             <Text style={[s.dateText, { color: isToday ? 'white' : theme.colors.textMuted }]}>{date}</Text>
                           </View>
                           {items.slice(0, 3).map(item => (
-                            <TouchableOpacity
-                              key={item.id}
-                              style={[s.eventPill, { backgroundColor: `${eventColor(item)}28` }]}
-                              onPress={() => setSelectedEvent(item)}
-                            >
+                            <TouchableOpacity key={item.id} style={[s.eventPill, { backgroundColor: `${eventColor(item)}28` }]} onPress={() => selectEvent(item)}>
                               <Text numberOfLines={1} style={[s.eventPillText, { color: eventColor(item) }]}>{item.title}</Text>
                             </TouchableOpacity>
                           ))}
@@ -135,7 +191,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
 
               <View style={s.legendRow}>
                 <Legend color="#3B82F6" label="Assignments" theme={theme} />
-                <Legend color="#22C55E" label="AI Study Sessions" theme={theme} />
+                <Legend color="#22C55E" label="Study Sessions" theme={theme} />
                 <Legend color="#EF4444" label="Exams" theme={theme} />
                 <Legend color="#A855F7" label="Personal Tasks" theme={theme} />
               </View>
@@ -146,38 +202,44 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                 <Ionicons name="calendar-outline" size={24} color={theme.colors.textSoft} />
               </View>
               <Text style={[s.sideTitle, { color: theme.colors.text }]}>
-                {selectedDate ? `March ${selectedDate}` : 'No Event Selected'}
+                {selectedEvent ? selectedEvent.title : selectedDate ? longDate(selectedDate) : 'Event Details'}
               </Text>
               <Text style={[s.sideSub, { color: theme.colors.textMuted }]}>
-                {selectedDate ? `${selectedEvents.length} event${selectedEvents.length === 1 ? '' : 's'} scheduled` : 'Click on an event in the calendar to view details'}
+                {selectedEvent ? longDate(selectedEvent.dateISO) : 'Click an event in the calendar to view details here.'}
               </Text>
 
-              {selectedEvents.map(item => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[s.detailRow, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceMuted }]}
-                  onPress={() => setSelectedEvent(item)}
-                >
-                  <View style={[s.detailDot, { backgroundColor: eventColor(item) }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.detailTitle, { color: theme.colors.text }]}>{item.title}</Text>
-                    <Text style={[s.detailTime, { color: theme.colors.textMuted }]}>{formatHour(item.startHour)} - {formatHour(item.endHour)}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {selectedEvent ? (
+                <View style={[s.selectedCard, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceMuted }]}>
+                  <View style={[s.detailDot, { backgroundColor: eventColor(selectedEvent) }]} />
+                  <Text style={[s.selectedTitle, { color: theme.colors.text }]}>{selectedEvent.title}</Text>
+                  <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Course: {COURSES[selectedEvent.course]?.label}</Text>
+                  <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Date: {longDate(selectedEvent.dateISO)}</Text>
+                  {selectedEvent.startHour !== undefined && selectedEvent.endHour !== undefined ? (
+                    <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Time: {formatHour(selectedEvent.startHour)} - {formatHour(selectedEvent.endHour)}</Text>
+                  ) : null}
+                  <Text style={[s.selectedDetail, { color: theme.colors.text }]}>{selectedEvent.detail}</Text>
+                </View>
+              ) : selectedEvents.length > 0 ? (
+                selectedEvents.map(item => (
+                  <TouchableOpacity key={item.id} style={[s.detailRow, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceMuted }]} onPress={() => selectEvent(item)}>
+                    <View style={[s.detailDot, { backgroundColor: eventColor(item) }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.detailTitle, { color: theme.colors.text }]}>{item.title}</Text>
+                      <Text style={[s.detailTime, { color: theme.colors.textMuted }]}>{item.startHour !== undefined ? `${formatHour(item.startHour)} - ${formatHour(item.endHour ?? item.startHour)}` : item.kind}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : null}
 
-              <TouchableOpacity style={[s.primaryBtn, { backgroundColor: '#EF0000' }]}>
-                <Text style={s.primaryText}>+ Add Personal Event</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.secondaryBtn, { borderColor: '#EF0000' }]}>
-                <Text style={s.secondaryText}>Import AI Study Plan</Text>
+              <TouchableOpacity style={[s.primaryBtn, { backgroundColor: '#EF0000' }]} onPress={() => setShowAddStudy(true)}>
+                <Text style={s.primaryText}>+ Create Event</Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </View>
 
-      <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+      <AddStudyModal visible={showAddStudy} onClose={() => setShowAddStudy(false)} onAdd={addBlock} />
     </SafeAreaView>
   );
 }
@@ -218,11 +280,13 @@ const s = StyleSheet.create({
   sideTitle: { fontSize: 15, fontWeight: '900', textAlign: 'center' },
   sideSub: { fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 8, marginBottom: 16 },
   detailRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 10 },
-  detailDot: { width: 9, height: 9, borderRadius: 5 },
+  detailDot: { width: 9, height: 9, borderRadius: 5, marginBottom: 8 },
   detailTitle: { fontSize: 12, fontWeight: '800' },
   detailTime: { fontSize: 10, marginTop: 2 },
+  selectedCard: { width: '100%', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 14 },
+  selectedTitle: { fontSize: 15, fontWeight: '900', marginBottom: 8 },
+  selectedLine: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  selectedDetail: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   primaryBtn: { width: '100%', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   primaryText: { color: 'white', fontSize: 12, fontWeight: '900' },
-  secondaryBtn: { width: '100%', borderRadius: 8, paddingVertical: 11, alignItems: 'center', marginTop: 10, borderWidth: 1.5 },
-  secondaryText: { color: '#EF0000', fontSize: 12, fontWeight: '900' },
 });

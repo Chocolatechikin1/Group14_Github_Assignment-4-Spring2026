@@ -132,6 +132,7 @@ export default function App() {
             notifications={notifications}
             onOpenSettings={openSettings}
             extraBlocks={extraBlocks}
+            addBlock={addBlock}
           />
         );
       case 'AI Chat':

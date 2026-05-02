@@ -26,6 +26,16 @@ export interface Task {
   detail: string;
 }
 
+export const TASK_DATES: Record<string, string> = {
+  t1: new Date().toISOString().slice(0, 10),
+  t2: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+  t3: '2026-03-07',
+  t4: '2026-03-17',
+  t5: '2026-03-12',
+  t6: '2026-03-14',
+  t7: '2026-03-15',
+};
+
 export const TASKS: Task[] = [
   {
     id: 't1', title: 'Physics HW 4', course: 'PHY',
@@ -75,6 +85,7 @@ export interface CalEvent {
   startHour: number;  // 24h float e.g. 14.5 = 2:30 PM
   endHour: number;
   detail: string;
+  dateISO?: string;
 }
 
 // User-created study blocks. Stored on the app and rendered in both
@@ -86,6 +97,8 @@ export interface ExtraBlock {
   day: number;        // 1=Mon … 7=Sun
   startHour: number;  // 24h float
   endHour: number;
+  dateISO?: string;
+  notes?: string;
 }
 
 // Convert an ExtraBlock to a CalEvent so the calendar grid can render it
@@ -98,7 +111,8 @@ export function extraBlockToCalEvent(b: ExtraBlock): CalEvent {
     day: b.day,
     startHour: b.startHour,
     endHour: b.endHour,
-    detail: `Personal study block — ${formatHour(b.startHour)} to ${formatHour(b.endHour)}.`,
+    dateISO: b.dateISO,
+    detail: b.notes || `Personal study block - ${formatHour(b.startHour)} to ${formatHour(b.endHour)}.`,
   };
 }
 
