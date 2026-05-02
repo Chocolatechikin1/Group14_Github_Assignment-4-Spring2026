@@ -19,6 +19,7 @@ import { StoredUser, updateUserPassword } from '../services/authStorage';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 type SettingsView = 'main' | 'password' | 'profile';
 
+// Settings uses typed rows so account, notification, and appearance items render consistently.
 interface SettingItem {
   icon: IoniconsName;
   iconColor: string;

@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Task, COURSES } from '../../data';
 import { shared } from '../../styles/shared';
 
+// Assignment detail modal mirrors the dashboard card and can toggle completion.
 interface Props {
   task: Task | null;
   isComplete: boolean;

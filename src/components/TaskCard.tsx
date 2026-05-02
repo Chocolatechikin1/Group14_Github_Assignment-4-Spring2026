@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { Task, COURSES, daysColor } from '../data';
 import { AppTheme } from '../styles/shared';
 
+// Reusable seeded-assignment card used by dashboard sections.
 interface Props {
   task: Task;
   checked: boolean;

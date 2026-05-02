@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { AppNotification } from '../../App';
 import { AppTheme, getSharedStyles } from '../styles/shared';
 
+// Shared top header with brand, notification dropdown, and profile shortcut.
 interface Props {
   right?: React.ReactNode;
   netId?: string;

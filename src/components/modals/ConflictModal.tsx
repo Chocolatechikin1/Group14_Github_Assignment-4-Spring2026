@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { shared, ACCENT } from '../../styles/shared';
 
+// Static demo conflict list used by the rescheduling warning modal.
 const CONFLICTS = [
   { label: 'Physics Quiz 2',  time: '2:00 PM', color: '#3B82F6' },
   { label: 'CS Proj Meeting', time: '3:00 PM', color: '#DC2626' },

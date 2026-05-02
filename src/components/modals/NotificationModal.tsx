@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { shared } from '../../styles/shared';
 
+// Local notification data keeps the demo interactive before a real backend exists.
 interface Notif {
   id: string;
   icon: string;

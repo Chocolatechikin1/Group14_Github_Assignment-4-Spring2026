@@ -11,6 +11,7 @@ import Header from '../components/Header';
 
 declare const process: any;
 
+// Messages use the same shape whether they come from canned examples or the API.
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
 
 const INITIAL_MSGS: ChatMsg[] = [

@@ -1,9 +1,7 @@
-// ─── Constants ────────────────────────────────────────────────────────────────
-
+// Shared demo data used by the dashboard, calendar, and AI prompt examples.
 export const ACCENT = '#BC0001';
 
-// ─── Courses ─────────────────────────────────────────────────────────────────
-
+// Course keys are the source of truth for card and event colors.
 export const COURSES: Record<string, { color: string; label: string }> = {
   PHY:  { color: '#3B82F6', label: 'Physics 2325' },
   MATH: { color: '#22C55E', label: 'Math 2417' },
@@ -11,8 +9,6 @@ export const COURSES: Record<string, { color: string; label: string }> = {
   CS:   { color: '#DC2626', label: 'CS 3354' },
   SELF: { color: '#A855F7', label: 'Self-Scheduled' },
 };
-
-// ─── Tasks ───────────────────────────────────────────────────────────────────
 
 export interface Task {
   id: string;
@@ -26,6 +22,7 @@ export interface Task {
   detail: string;
 }
 
+// Calendar placement is split from display copy so cards can keep friendly due labels.
 export const TASK_DATES: Record<string, string> = {
   t1: '2026-05-01',
   t2: '2026-05-01',
@@ -33,7 +30,6 @@ export const TASK_DATES: Record<string, string> = {
   t4: '2026-05-08',
   t5: '2026-05-05',
   t6: '2026-05-12',
-  t7: '2026-05-15',
 };
 
 export const TASKS: Task[] = [
@@ -67,34 +63,26 @@ export const TASKS: Task[] = [
     due: 'May 12, 2026, 10:00 AM', type: 'Exam', status: 'upcoming', daysLabel: '10 DAYS',
     detail: '90-minute closed-book exam. Topics: integration techniques (substitution, by parts), area between curves, volumes of revolution. 4 formula sheets allowed.',
   },
-  {
-    id: 't7', title: 'Study Session: Finals', course: 'SELF',
-    due: 'May 15, 2026, 3:00 PM', type: 'Study Block', status: 'upcoming', daysLabel: 'PERSONAL',
-    isPersonal: true,
-    detail: 'Personal study block - Finals prep across all subjects. Duration: 2 hours 30 minutes. Location: Library Room 204. Bring all notes and practice exams.',
-  },
 ];
-
-// ─── Calendar Events ──────────────────────────────────────────────────────────
 
 export interface CalEvent {
   id: string;
   title: string;
   course: keyof typeof COURSES;
-  day: number;        // 1=Mon … 7=Sun
+  day: number;        // 1=Mon ... 7=Sun
   startHour: number;  // 24h float e.g. 14.5 = 2:30 PM
   endHour: number;
   detail: string;
   dateISO?: string;
 }
 
-// User-created study blocks. Stored on the app and rendered in both
-// the Dashboard list AND the Calendar week grid.
+// User-created items share one shape: study blocks use time/duration,
+// while tasks use dueDateISO and appear alongside assignments.
 export interface ExtraBlock {
   id: string;
   title: string;
   course: keyof typeof COURSES;
-  day: number;        // 1=Mon … 7=Sun
+  day: number;        // 1=Mon ... 7=Sun
   startHour: number;  // 24h float
   endHour: number;
   dateISO?: string;
@@ -104,8 +92,7 @@ export interface ExtraBlock {
   durationSeconds?: number;
 }
 
-// Convert an ExtraBlock to a CalEvent so the calendar grid can render it
-// using the same code path as scheduled events.
+// Keep custom calendar rendering on the same CalEvent path as seeded events.
 export function extraBlockToCalEvent(b: ExtraBlock): CalEvent {
   return {
     id: b.id,
@@ -126,7 +113,6 @@ export const CAL_EVENTS: CalEvent[] = [
   { id: 'e4', title: 'Physics Lab',        course: 'PHY',  day: 3, startHour: 19,   endHour: 20.5, detail: 'Lab 6: Projectile Motion. Bring lab notebook. Pre-lab quiz at start of session.' },
   { id: 'e5', title: 'Calculus Exam 2',    course: 'MATH', day: 4, startHour: 10,   endHour: 11.5, detail: 'Exam in GR 2.302. Closed-book, 90 min. 4 formula sheets allowed. Arrive 10 min early.' },
   { id: 'e6', title: 'History Essay Due',  course: 'HIST', day: 5, startHour: 14,   endHour: 14.5, detail: 'Submit via Canvas by 2:00 PM. No late submissions accepted without dean approval.' },
-  { id: 'e7', title: 'Study: Finals Prep', course: 'SELF', day: 6, startHour: 10,   endHour: 12.5, detail: 'Library Room 204. Finals prep — all subjects. Bring notes, past exams, and highlighters.' },
 ];
 
 export function addCalendarEvent(ev: Omit<CalEvent, 'id'>) {
@@ -134,8 +120,7 @@ export function addCalendarEvent(ev: Omit<CalEvent, 'id'>) {
   CAL_EVENTS.push({ ...ev, id: newId });
 }
 
-// ─── AI Responses ─────────────────────────────────────────────────────────────
-
+// Fallback responses appear when an exact canned prompt is selected.
 export const AI_REPLIES: Record<string, string> = {
   "What's my next most urgent task?":
     "Your most urgent tasks right now:\n\n🔴 Physics HW 4 — Due TODAY at 11:59 PM\n🔴 Calculus Problem Set 6 — OVERDUE (was due yesterday)\n🔴 History Essay Draft — OVERDUE (was due March 7)\n\nI recommend tackling Physics HW 4 first since the deadline is tonight!",
@@ -150,10 +135,8 @@ export const AI_REPLIES: Record<string, string> = {
     "Top tips for Physics Quiz 2:\n\n⚡ Ch 3 — Kinematics\n• Memorize the 4 kinematic equations\n• Always draw motion diagrams first\n\n⚡ Ch 4 — Newton's Laws\n• Draw free-body diagrams for every problem\n• ΣF = ma — always identify all forces\n\n⚡ Ch 5 — Work & Energy\n• W = Fd·cosθ (don't forget the angle!)\n• Use conservation of energy to save time\n\n⏰ You have 3 days — 1 focused hour per chapter is all you need!",
 
   "List all my upcoming due dates sorted by urgency.":
-    "All deadlines, most urgent first:\n\n🔴 OVERDUE — Physics HW 4 (TODAY)\n🔴 OVERDUE — Calculus Problem Set 6\n🔴 OVERDUE — History Essay Draft\n──────────────────────\n⚠️  Mar 12, 2:00 PM — Physics Quiz 2\n⚠️  Mar 14, 10:00 AM — Calculus Exam 2\n⏳ Mar 15, 3:00 PM — Study Session\n⏳ Mar 17, 11:59 PM — CS 3354 Project\n\n3 items are already overdue — tackle those first!",
+    "All deadlines, most urgent first:\n\n🔴 OVERDUE — Physics HW 4 (TODAY)\n🔴 OVERDUE — Calculus Problem Set 6\n🔴 OVERDUE — History Essay Draft\n──────────────────────\n⚠️  May 5, 2:00 PM — Physics Quiz 2\n⚠️  May 8, 11:59 PM — CS 3354 Project\n⚠️  May 12, 10:00 AM — Calculus Exam 2\n\n3 items are already overdue — tackle those first!",
 };
-
-// ─── Prompt Chips ─────────────────────────────────────────────────────────────
 
 export const PROMPT_CHIPS = [
   { label: "📋 What's next?",    color: '#3B82F6', msg: "What's my next most urgent task?" },
@@ -163,8 +146,7 @@ export const PROMPT_CHIPS = [
   { label: '📅 Due Dates',        color: '#DC2626', msg: 'List all my upcoming due dates sorted by urgency.' },
 ];
 
-// ─── Calendar helpers ─────────────────────────────────────────────────────────
-
+// Calendar label helpers keep the same time format across cards and modals.
 export const WEEK_DAYS  = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
 export const WEEK_DATES = [9, 10, 11, 12, 13, 14, 15];
 export const HOURS      = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];

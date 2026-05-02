@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 
+// The demo auth layer stores users locally for web and native Expo builds.
 export interface StoredUser {
   fullName: string;
   firstName: string;
@@ -62,6 +63,7 @@ function writeWebValue(key: string, value: string) {
   }
 }
 
+// Storage helpers hide the localStorage-vs-file-system split from auth functions.
 async function ensureNativeFile(path: string) {
   if (!path) {
     throw new Error('Storage is unavailable in this environment.');

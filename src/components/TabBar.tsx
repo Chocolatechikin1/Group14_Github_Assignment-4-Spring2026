@@ -7,6 +7,7 @@ import { AppTheme } from '../styles/shared';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
+// One tab definition drives both mobile bottom tabs and desktop sidebar buttons.
 const TABS: { name: TabName; icon: IoniconsName; iconActive: IoniconsName; label: string }[] = [
   { name: 'Dashboard', label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid' },
   { name: 'Calendar', label: 'Calendar', icon: 'calendar-outline', iconActive: 'calendar' },

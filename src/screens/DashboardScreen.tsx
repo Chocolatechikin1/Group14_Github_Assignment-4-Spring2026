@@ -13,6 +13,7 @@ import TaskCard from '../components/TaskCard';
 import TaskDetailModal from '../components/modals/TaskDetailModal';
 import AddStudyModal from '../components/modals/AddStudyModal';
 
+// Mini-calendar entries are normalized so tasks and custom blocks can be clicked alike.
 type CalendarItem = {
   id: string;
   title: string;
@@ -112,6 +113,7 @@ export default function DashboardScreen({
     return [...taskItems, ...blockItems];
   }, [extraBlocks]);
 
+  // Searching or clicking a mini-calendar item brings the matching card to the front.
   const visibleTasks = TASKS.filter(task =>
     !search || [task.title, COURSES[task.course].label, task.type, task.due]
       .some(value => value.toLowerCase().includes(search.toLowerCase()))

@@ -1,5 +1,6 @@
 import { Platform, StyleSheet } from 'react-native';
 
+// Shared colors and styles keep the merged feature branches visually cohesive.
 export const RED = '#BC0001';
 export const ACCENT = RED;
 export const LIGHT_RED = '#D65254';
@@ -97,6 +98,7 @@ export const CARD_SHADOW = Platform.select({
   android: { elevation: 4 },
 }) ?? {};
 
+// Theme-aware styles are generated from one place for light and dark mode.
 export const getSharedStyles = (theme: AppTheme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.screen },

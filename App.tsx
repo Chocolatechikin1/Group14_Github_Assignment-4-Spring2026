@@ -15,6 +15,7 @@ import { ExtraBlock } from './src/data';
 import { AppTheme, darkTheme, lightTheme, RED } from './src/styles/shared';
 import { StoredUser } from './src/services/authStorage';
 
+// Top-level navigation names are kept here so the tab bar and screens stay in sync.
 export type TabName = 'Dashboard' | 'Calendar' | 'AI Chat' | 'Settings';
 
 export interface AppNotification {
@@ -54,6 +55,7 @@ export default function App() {
     });
   };
 
+  // Custom study blocks/tasks live in App so dashboard and calendar share one source.
   const addBlock = (block: ExtraBlock) => setExtraBlocks(prev => [...prev, block]);
   const updateBlock = (block: ExtraBlock) => {
     setExtraBlocks(prev => prev.map(item => (item.id === block.id ? block : item)));
@@ -111,6 +113,7 @@ export default function App() {
 
   const openSettings = () => setActiveTab('Settings');
 
+  // Screen props are wired centrally so cross-page state stays predictable.
   const renderScreen = () => {
     switch (activeTab) {
       case 'Dashboard':

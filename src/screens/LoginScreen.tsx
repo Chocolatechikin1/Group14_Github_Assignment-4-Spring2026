@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RED, LIGHT_RED, GOLD } from '../styles/shared';
 import { loginUser, registerUser, StoredUser } from '../services/authStorage';
 
+// Login and registration share the same form shell and local auth service.
 interface Props {
   onLogin: (user: StoredUser) => void;
 }
@@ -35,6 +36,7 @@ export default function LoginScreen({ onLogin }: Props) {
   const [focused, setFocused] = useState<string | null>(null);
   const [ssoHovered, setSsoHovered] = useState(false);
 
+  // Centralizes loading and error handling for both login and registration.
   const withLoading = async (work: () => Promise<void>) => {
     try {
       setLoading(true);

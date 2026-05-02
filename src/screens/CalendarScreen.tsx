@@ -10,6 +10,7 @@ import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
 import AddStudyModal from '../components/modals/AddStudyModal';
 
+// Calendar events are normalized into this display shape before rendering month/week views.
 interface Props {
   theme: AppTheme;
   netId: string;
@@ -77,6 +78,7 @@ function longDate(dateISO: string) {
   });
 }
 
+// Seeded tasks and custom blocks become one event list for selection/details.
 function taskKind(type: string): MonthItem['kind'] {
   if (type.toLowerCase().includes('exam') || type.toLowerCase().includes('quiz')) return 'exam';
   if (type.toLowerCase().includes('study')) return 'study';

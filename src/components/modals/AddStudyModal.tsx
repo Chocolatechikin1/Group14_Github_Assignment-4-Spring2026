@@ -6,6 +6,7 @@ import {
 import { shared } from '../../styles/shared';
 import { ExtraBlock, formatHour } from '../../data';
 
+// The modal handles both create and edit flows for custom study blocks/tasks.
 const COURSES_LIST = [
   { key: 'PHY', label: 'Physics 2325', color: '#3B82F6' },
   { key: 'MATH', label: 'Math 2417', color: '#22C55E' },
@@ -46,6 +47,7 @@ function parseClockTime(value: string, period: 'AM' | 'PM') {
   return hour + minutes / 60;
 }
 
+// Duration fields stay separate so users can enter exact hours/minutes/seconds.
 function cleanDurationPart(value: string) {
   const numeric = Number(value || '0');
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
