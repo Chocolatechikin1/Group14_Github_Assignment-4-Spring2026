@@ -46,6 +46,7 @@ function parseDateInput(value: string) {
 }
 
 export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
+  const [itemType, setItemType] = useState<'study' | 'task'>('study');
   const [title, setTitle] = useState('');
   const [dateInput, setDateInput] = useState(todayISO());
   const [duration, setDuration] = useState(1);
@@ -57,6 +58,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
   const isValid = Boolean(title.trim() && parsedDate);
 
   const reset = () => {
+    setItemType('study');
     setTitle('');
     setDateInput(todayISO());
     setDuration(1);
@@ -77,7 +79,9 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
       startHour,
       endHour,
       dateISO: parsedDate.toISOString().slice(0, 10),
+      dueDateISO: parsedDate.toISOString().slice(0, 10),
       notes: notes.trim(),
+      itemType,
     });
     reset();
     onClose();
@@ -94,9 +98,24 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
         <View style={shared.overlay}>
           <View style={shared.sheet}>
             <View style={shared.sheetHandle} />
-            <Text style={[shared.modalTitle, { marginBottom: 20 }]}>Add Study Block</Text>
+            <Text style={[shared.modalTitle, { marginBottom: 20 }]}>Add Study Block or Task</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 560 }}>
+              <Text style={s.label}>Type</Text>
+              <View style={s.typeRow}>
+                {(['study', 'task'] as const).map(type => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[s.typeBtn, itemType === type && s.typeBtnActive]}
+                    onPress={() => setItemType(type)}
+                  >
+                    <Text style={[s.typeBtnText, itemType === type && s.typeBtnTextActive]}>
+                      {type === 'study' ? 'Study Block' : 'Task'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <Text style={s.label}>Title *</Text>
               <TextInput
                 style={s.input}
@@ -106,7 +125,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
                 onChangeText={setTitle}
               />
 
-              <Text style={s.label}>Date *</Text>
+              <Text style={s.label}>{itemType === 'study' ? 'Study Date *' : 'Due Date *'}</Text>
               <TextInput
                 style={[s.input, !parsedDate && s.inputError]}
                 placeholder="YYYY-MM-DD"
@@ -130,23 +149,27 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
                 ))}
               </ScrollView>
 
-              <Text style={[s.label, { marginTop: 14 }]}>Start Time</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
-                {START_HOURS.map(h => (
-                  <TouchableOpacity key={h} style={[s.timeChip, startHour === h && s.timeChipActive]} onPress={() => setStartHour(h)}>
-                    <Text style={[s.timeChipTxt, startHour === h && s.timeChipTxtActive]}>{formatHour(h)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {itemType === 'study' ? (
+                <>
+                  <Text style={[s.label, { marginTop: 14 }]}>Start Time</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
+                    {START_HOURS.map(h => (
+                      <TouchableOpacity key={h} style={[s.timeChip, startHour === h && s.timeChipActive]} onPress={() => setStartHour(h)}>
+                        <Text style={[s.timeChipTxt, startHour === h && s.timeChipTxtActive]}>{formatHour(h)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
 
-              <Text style={[s.label, { marginTop: 14 }]}>Duration</Text>
-              <View style={s.durationRow}>
-                {DURATIONS.map(d => (
-                  <TouchableOpacity key={d.label} style={[s.durBtn, duration === d.hours && s.durBtnActive]} onPress={() => setDuration(d.hours)}>
-                    <Text style={[s.durTxt, duration === d.hours && s.durTxtActive]}>{d.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  <Text style={[s.label, { marginTop: 14 }]}>Duration</Text>
+                  <View style={s.durationRow}>
+                    {DURATIONS.map(d => (
+                      <TouchableOpacity key={d.label} style={[s.durBtn, duration === d.hours && s.durBtnActive]} onPress={() => setDuration(d.hours)}>
+                        <Text style={[s.durTxt, duration === d.hours && s.durTxtActive]}>{d.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              ) : null}
 
               <Text style={[s.label, { marginTop: 14 }]}>Description</Text>
               <TextInput
@@ -159,15 +182,16 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
               />
 
               <View style={s.preview}>
-                <Text style={s.previewLabel}>Scheduled For</Text>
+                <Text style={s.previewLabel}>{itemType === 'study' ? 'Scheduled For' : 'Due'}</Text>
                 <Text style={s.previewVal}>
-                  {parsedDate ? parsedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Invalid date'} | {formatHour(startHour)} - {formatHour(Math.min(startHour + duration, 24))}
+                  {parsedDate ? parsedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Invalid date'}
+                  {itemType === 'study' ? ` | ${formatHour(startHour)} - ${formatHour(Math.min(startHour + duration, 24))}` : ''}
                 </Text>
               </View>
             </ScrollView>
 
             <TouchableOpacity style={[shared.ctaBtn, { backgroundColor: '#7C3AED', marginTop: 20, opacity: isValid ? 1 : 0.5 }]} onPress={handleAdd} disabled={!isValid}>
-              <Text style={shared.ctaTxt}>Add to Calendar</Text>
+              <Text style={shared.ctaTxt}>{itemType === 'study' ? 'Add Study Block' : 'Add Task'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={shared.dismissBtn} onPress={handleClose}>
               <Text style={shared.dismissTxt}>Cancel</Text>
@@ -181,6 +205,11 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
 
 const s = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '700', color: '#374151', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  typeBtn: { flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, paddingVertical: 11, alignItems: 'center', backgroundColor: 'white' },
+  typeBtnActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  typeBtnText: { fontSize: 13, fontWeight: '800', color: '#374151' },
+  typeBtnTextActive: { color: 'white' },
   input: { borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, fontSize: 14, color: '#111827', marginBottom: 16, backgroundColor: 'white' },
   inputError: { borderColor: '#EF4444', marginBottom: 4 },
   errorText: { color: '#B91C1C', fontSize: 12, fontWeight: '700', marginBottom: 14 },

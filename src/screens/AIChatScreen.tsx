@@ -16,7 +16,7 @@ interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string;
 const INITIAL_MSGS: ChatMsg[] = [
   {
     id: 'm0', role: 'ai', time: '2:30 PM',
-    text: "Hi! I'm MiniTA, your AI teaching assistant.\n\nI can help with assignments, syllabi, study plans, and grade calculations.\n\nWhat do you need help with today?",
+    text: "👋 Hi Ngoc! I'm MiniTA, your AI teaching assistant.\n\nI can help you with assignments, summarize syllabi, generate study plans, calculate grades, and more.\n\nWhat do you need help with today?",
   },
   {
     id: 'm1', role: 'user', time: '2:33 PM',
@@ -24,7 +24,7 @@ const INITIAL_MSGS: ChatMsg[] = [
   },
   {
     id: 'm2', role: 'ai', time: '2:34 PM',
-    text: "Sure! Here's the CS 3354 grading breakdown:\n\nProject 1 - Software Design Doc: 20%\nDue: Feb 28, 2026\n\nProject 2 - Full Stack App: 30%\nDue: Apr 15, 2026\n\nFinal Exam - Comprehensive: 50%\nDate: May 10, 2026\n\nRecommendation: Project 2 is worth the most points you can still earn.",
+    text: "Sure! Here's the CS 3354 grading breakdown:\n\n📘 Project 1 — Software Design Doc: 20%\nDue: Feb 28, 2026 ✅\n\n🟣 Project 2 — Full Stack App: 30% ← You are here\nDue: Apr 15, 2026\n\n🔴 Final Exam — Comprehensive: 50%\nDate: May 10, 2026\n\n💡 Recommendation: Project 2 is worth the most points you can still earn. Focus here for maximum grade impact!",
   },
 ];
 
@@ -55,7 +55,7 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
       systemInstruction:
-        'You are MiniTA, an AI teaching assistant. Help students with assignments, syllabi, study plans, and grade calculations. Keep answers friendly, concise, and coursework focused.',
+        "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics.",
     });
     chatSessionRef.current = model.startChat({
       history: INITIAL_MSGS.map(msg => ({
@@ -99,7 +99,7 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
       const errMsg: ChatMsg = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        text: "Sorry, I'm not working right now. I'm trying to connect to the AI service, but the API key or connection is not available yet.",
+        text: "Sorry, I'm having trouble connecting right now.",
         time: nowTime(),
       };
       setMessages(prev => [...prev, errMsg]);
@@ -122,7 +122,20 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
           <Text style={[s.aiName, { color: theme.colors.text }]}>MiniTA Assistant</Text>
           <Text style={[s.aiStatus, { color: theme.colors.textMuted }]}>{typing ? 'Typing...' : 'Online | Ready to help'}</Text>
         </View>
-        <TouchableOpacity style={[s.clearBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => setMessages([INITIAL_MSGS[0]])}>
+        <TouchableOpacity style={[s.clearBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => {
+          setMessages([INITIAL_MSGS[0]]);
+          const apiKey = process?.env?.EXPO_PUBLIC_GEMINI_API_KEY;
+          if (apiKey) {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({
+              model: 'gemini-1.5-flash',
+              systemInstruction: "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics",
+            });
+            chatSessionRef.current = model.startChat({
+              history: [{ role: 'model', parts: [{ text: INITIAL_MSGS[0].text }] }],
+            });
+          }
+        }}>
           <Text style={[s.clearBtnTxt, { color: theme.colors.accent }]}>Clear</Text>
         </TouchableOpacity>
       </View>

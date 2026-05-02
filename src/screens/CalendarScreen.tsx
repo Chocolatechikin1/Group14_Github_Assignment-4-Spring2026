@@ -28,7 +28,9 @@ type MonthItem = {
   endHour?: number;
   detail: string;
   kind: 'assignment' | 'study' | 'exam' | 'personal';
+  typeLabel?: string;
 };
+type CalendarView = 'month' | 'week';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -54,6 +56,16 @@ function toISO(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+function weekDates(anchor: Date) {
+  const start = new Date(anchor);
+  start.setDate(anchor.getDate() - anchor.getDay());
+  return Array.from({ length: 7 }, (_, index) => {
+    const next = new Date(start);
+    next.setDate(start.getDate() + index);
+    return next;
+  });
+}
+
 function longDate(dateISO: string) {
   return new Date(`${dateISO}T12:00:00`).toLocaleDateString(undefined, {
     weekday: 'long',
@@ -77,6 +89,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<MonthItem | null>(null);
   const [showAddStudy, setShowAddStudy] = useState(false);
+  const [viewMode, setViewMode] = useState<CalendarView>('month');
 
   const monthEvents = useMemo<MonthItem[]>(() => {
     const taskEvents = TASKS.map(task => ({
@@ -86,6 +99,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
       dateISO: TASK_DATES[task.id],
       detail: task.detail,
       kind: taskKind(task.type),
+      typeLabel: task.type,
     }));
     const blockEvents = extraBlocks
       .filter(block => block.dateISO)
@@ -96,8 +110,9 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
         dateISO: block.dateISO as string,
         startHour: block.startHour,
         endHour: block.endHour,
-        detail: block.notes || 'Personal study block.',
-        kind: 'personal' as const,
+        detail: block.notes || (block.itemType === 'task' ? 'Personal task.' : 'Personal study block.'),
+        kind: block.itemType === 'task' ? 'assignment' as const : 'personal' as const,
+        typeLabel: block.itemType === 'task' ? 'Personal Task' : 'Study Block',
       }));
     return [...taskEvents, ...blockEvents];
   }, [extraBlocks]);
@@ -107,6 +122,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   const cells = useMemo(() => monthCells(monthDate), [monthDate]);
   const todayISO = new Date().toISOString().slice(0, 10);
   const selectedEvents = selectedDate ? monthEvents.filter(item => item.dateISO === selectedDate) : [];
+  const week = weekDates(monthDate);
 
   const selectEvent = (item: MonthItem) => {
     setSelectedDate(item.dateISO);
@@ -144,50 +160,87 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                 </View>
               </View>
 
-              <View style={[s.weekRow, { borderColor: theme.colors.border }]}>
-                {WEEKDAYS.map(day => (
-                  <Text key={day} style={[s.weekText, { color: theme.colors.textMuted }]}>{day}</Text>
+              <View style={[s.viewSwitch, { backgroundColor: theme.colors.surfaceMuted }]}>
+                {(['month', 'week'] as const).map(mode => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[s.viewSwitchBtn, viewMode === mode && { backgroundColor: theme.colors.accent }]}
+                    onPress={() => setViewMode(mode)}
+                  >
+                    <Text style={[s.viewSwitchText, { color: viewMode === mode ? '#111827' : theme.colors.textMuted }]}>
+                      {mode === 'month' ? 'Monthly' : 'Weekly'}
+                    </Text>
+                  </TouchableOpacity>
                 ))}
               </View>
 
-              <View style={[s.grid, { borderColor: theme.colors.border }]}>
-                {cells.map((date, index) => {
-                  const dateISO = date ? toISO(year, month, date) : '';
-                  const items = date ? monthEvents.filter(item => item.dateISO === dateISO) : [];
-                  const isSelected = dateISO === selectedDate;
-                  const isToday = dateISO === todayISO;
-                  return (
-                    <TouchableOpacity
-                      key={`${date ?? 'empty'}-${index}`}
-                      activeOpacity={date ? 0.78 : 1}
-                      disabled={!date}
-                      onPress={() => {
-                        setSelectedDate(dateISO);
-                        setSelectedEvent(items[0] ?? null);
-                      }}
-                      style={[
-                        s.dayCell,
-                        { borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
-                        !date && { backgroundColor: theme.colors.surfaceMuted },
-                        isSelected && { borderColor: theme.colors.accent, borderWidth: 2 },
-                      ]}
-                    >
-                      {date ? (
-                        <>
-                          <View style={[s.dateBadge, isToday && { backgroundColor: '#EF4444' }]}>
-                            <Text style={[s.dateText, { color: isToday ? 'white' : theme.colors.textMuted }]}>{date}</Text>
-                          </View>
-                          {items.slice(0, 3).map(item => (
-                            <TouchableOpacity key={item.id} style={[s.eventPill, { backgroundColor: `${eventColor(item)}28` }]} onPress={() => selectEvent(item)}>
-                              <Text numberOfLines={1} style={[s.eventPillText, { color: eventColor(item) }]}>{item.title}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {viewMode === 'month' ? (
+                <>
+                  <View style={[s.weekRow, { borderColor: theme.colors.border }]}>
+                    {WEEKDAYS.map(day => (
+                      <Text key={day} style={[s.weekText, { color: theme.colors.textMuted }]}>{day}</Text>
+                    ))}
+                  </View>
+
+                  <View style={[s.grid, { borderColor: theme.colors.border }]}>
+                    {cells.map((date, index) => {
+                      const dateISO = date ? toISO(year, month, date) : '';
+                      const items = date ? monthEvents.filter(item => item.dateISO === dateISO) : [];
+                      const isSelected = dateISO === selectedDate;
+                      const isToday = dateISO === todayISO;
+                      return (
+                        <TouchableOpacity
+                          key={`${date ?? 'empty'}-${index}`}
+                          activeOpacity={date ? 0.78 : 1}
+                          disabled={!date}
+                          onPress={() => {
+                            setSelectedDate(dateISO);
+                            setSelectedEvent(items[0] ?? null);
+                          }}
+                          style={[
+                            s.dayCell,
+                            { borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+                            !date && { backgroundColor: theme.colors.surfaceMuted },
+                            isSelected && { borderColor: theme.colors.accent, borderWidth: 2 },
+                          ]}
+                        >
+                          {date ? (
+                            <>
+                              <View style={[s.dateBadge, isToday && { backgroundColor: '#EF4444' }]}>
+                                <Text style={[s.dateText, { color: isToday ? 'white' : theme.colors.textMuted }]}>{date}</Text>
+                              </View>
+                              {items.slice(0, 3).map(item => (
+                                <TouchableOpacity key={item.id} style={[s.eventPill, { backgroundColor: `${eventColor(item)}28` }]} onPress={() => selectEvent(item)}>
+                                  <Text numberOfLines={1} style={[s.eventPillText, { color: eventColor(item) }]}>{item.title}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </>
+                          ) : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : (
+                <View style={[s.weekView, { borderColor: theme.colors.border }]}>
+                  {week.map(date => {
+                    const dateISO = date.toISOString().slice(0, 10);
+                    const items = monthEvents.filter(item => item.dateISO === dateISO);
+                    return (
+                      <View key={dateISO} style={[s.weekDayCol, { borderColor: theme.colors.border }]}>
+                        <Text style={[s.weekDayName, { color: theme.colors.textMuted }]}>{date.toLocaleDateString(undefined, { weekday: 'short' })}</Text>
+                        <Text style={[s.weekDayNum, { color: dateISO === todayISO ? '#EF4444' : theme.colors.text }]}>{date.getDate()}</Text>
+                        {items.map(item => (
+                          <TouchableOpacity key={item.id} style={[s.weekEventBlock, { backgroundColor: `${eventColor(item)}28` }]} onPress={() => selectEvent(item)}>
+                            <Text style={[s.weekEventTitle, { color: eventColor(item) }]}>{item.title}</Text>
+                            <Text style={[s.weekEventMeta, { color: theme.colors.textMuted }]}>{item.startHour !== undefined ? `${formatHour(item.startHour)} - ${formatHour(item.endHour ?? item.startHour)}` : item.typeLabel}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
 
               <View style={s.legendRow}>
                 <Legend color="#3B82F6" label="Assignments" theme={theme} />
@@ -212,11 +265,13 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                 <View style={[s.selectedCard, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceMuted }]}>
                   <View style={[s.detailDot, { backgroundColor: eventColor(selectedEvent) }]} />
                   <Text style={[s.selectedTitle, { color: theme.colors.text }]}>{selectedEvent.title}</Text>
+                  <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Type: {selectedEvent.typeLabel ?? selectedEvent.kind}</Text>
                   <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Course: {COURSES[selectedEvent.course]?.label}</Text>
-                  <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Date: {longDate(selectedEvent.dateISO)}</Text>
+                  <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Due Date: {longDate(selectedEvent.dateISO)}</Text>
                   {selectedEvent.startHour !== undefined && selectedEvent.endHour !== undefined ? (
-                    <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Time: {formatHour(selectedEvent.startHour)} - {formatHour(selectedEvent.endHour)}</Text>
+                    <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Study Time: {formatHour(selectedEvent.startHour)} - {formatHour(selectedEvent.endHour)}</Text>
                   ) : null}
+                  <Text style={[s.descriptionLabel, { color: theme.colors.text }]}>Description</Text>
                   <Text style={[s.selectedDetail, { color: theme.colors.text }]}>{selectedEvent.detail}</Text>
                 </View>
               ) : selectedEvents.length > 0 ? (
@@ -263,6 +318,9 @@ const s = StyleSheet.create({
   monthTitle: { fontSize: 24, fontWeight: '900' },
   monthControls: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   todayLabel: { fontSize: 12, fontWeight: '800' },
+  viewSwitch: { flexDirection: 'row', alignSelf: 'flex-start', borderRadius: 8, padding: 4, marginBottom: 14 },
+  viewSwitchBtn: { borderRadius: 6, paddingHorizontal: 14, paddingVertical: 8 },
+  viewSwitchText: { fontSize: 12, fontWeight: '900' },
   weekRow: { flexDirection: 'row', borderWidth: 1, borderBottomWidth: 0, borderTopLeftRadius: 6, borderTopRightRadius: 6, overflow: 'hidden' },
   weekText: { flex: 1, textAlign: 'center', paddingVertical: 10, fontSize: 11, fontWeight: '800' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', borderLeftWidth: 1, borderTopWidth: 1 },
@@ -271,6 +329,13 @@ const s = StyleSheet.create({
   dateText: { fontSize: 12, fontWeight: '800' },
   eventPill: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   eventPillText: { fontSize: 10, fontWeight: '800' },
+  weekView: { flexDirection: 'row', borderTopWidth: 1, borderLeftWidth: 1, minHeight: 520 },
+  weekDayCol: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, padding: 8, gap: 8 },
+  weekDayName: { fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  weekDayNum: { fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
+  weekEventBlock: { borderRadius: 6, padding: 8 },
+  weekEventTitle: { fontSize: 11, fontWeight: '900' },
+  weekEventMeta: { fontSize: 9, fontWeight: '700', marginTop: 3 },
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 2 },
@@ -286,7 +351,8 @@ const s = StyleSheet.create({
   selectedCard: { width: '100%', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 14 },
   selectedTitle: { fontSize: 15, fontWeight: '900', marginBottom: 8 },
   selectedLine: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
-  selectedDetail: { fontSize: 12, lineHeight: 18, marginTop: 8 },
+  descriptionLabel: { fontSize: 12, fontWeight: '900', marginTop: 10, marginBottom: 4 },
+  selectedDetail: { fontSize: 12, lineHeight: 19, marginTop: 2 },
   primaryBtn: { width: '100%', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   primaryText: { color: 'white', fontSize: 12, fontWeight: '900' },
 });

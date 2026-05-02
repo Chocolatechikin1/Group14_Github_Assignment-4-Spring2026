@@ -99,6 +99,8 @@ export interface ExtraBlock {
   endHour: number;
   dateISO?: string;
   notes?: string;
+  itemType?: 'study' | 'task';
+  dueDateISO?: string;
 }
 
 // Convert an ExtraBlock to a CalEvent so the calendar grid can render it

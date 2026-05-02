@@ -58,6 +58,14 @@ function toISO(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isOverdueDate(dateISO?: string) {
+  return Boolean(dateISO && dateISO < todayISO());
+}
+
 export default function DashboardScreen({
   goToTab,
   currentUser,
@@ -112,6 +120,8 @@ export default function DashboardScreen({
   const overdue = visibleTasks.filter(task => task.status === 'overdue' && !checked.has(task.id));
   const upcoming = visibleTasks.filter(task => task.status === 'upcoming' && !checked.has(task.id));
   const done = visibleTasks.filter(task => checked.has(task.id));
+  const customUpcoming = extraBlocks.filter(block => !isOverdueDate(block.dateISO));
+  const customOverdue = extraBlocks.filter(block => isOverdueDate(block.dateISO));
   const focusedBlock = extraBlocks.find(block => block.id === focusedItemId);
 
   const focusCalendarItem = (item: CalendarItem) => {
@@ -167,6 +177,12 @@ export default function DashboardScreen({
               </TouchableOpacity>
             </View>
 
+            <View style={s.badgeRow}>
+              <StatusBadge label="Upcoming" count={upcoming.length + customUpcoming.length} color="#1D4ED8" bg="#DBEAFE" />
+              <StatusBadge label="Overdue" count={overdue.length + customOverdue.length} color="#DC2626" bg="#FEE2E2" />
+              <StatusBadge label="Done" count={done.length} color="#15803D" bg="#DCFCE7" />
+            </View>
+
             {!isWide ? (
               <MiniCalendar theme={theme} items={calendarItems} onItemPress={focusCalendarItem} onOpen={() => goToTab('Calendar')} />
             ) : null}
@@ -177,6 +193,9 @@ export default function DashboardScreen({
                   <TaskCard task={task} checked={checked.has(task.id)} onCheck={toggleChecked} onViewDetails={setSelectedTask} theme={theme} />
                 </View>
               ))}
+              {customUpcoming.map(block => (
+                <CustomBlockCard key={block.id} block={block} theme={theme} focused={block.id === focusedItemId} onPress={() => setFocusedItemId(block.id)} />
+              ))}
             </TaskGridSection>
 
             <TaskGridSection title="Overdue Assignments" color="#EF4444" count={overdue.length} shared={shared}>
@@ -184,6 +203,9 @@ export default function DashboardScreen({
                 <View key={task.id} style={s.taskTile}>
                   <TaskCard task={task} checked={checked.has(task.id)} onCheck={toggleChecked} onViewDetails={setSelectedTask} theme={theme} />
                 </View>
+              ))}
+              {customOverdue.map(block => (
+                <CustomBlockCard key={block.id} block={block} theme={theme} focused={block.id === focusedItemId} onPress={() => setFocusedItemId(block.id)} />
               ))}
             </TaskGridSection>
 
@@ -194,25 +216,6 @@ export default function DashboardScreen({
                     <TaskCard task={task} checked={checked.has(task.id)} onCheck={toggleChecked} onViewDetails={setSelectedTask} theme={theme} />
                   </View>
                 ))}
-              </TaskGridSection>
-            ) : null}
-
-            {(extraBlocks.length > 0 || focusedBlock) ? (
-              <TaskGridSection title="Study Blocks" color="#A855F7" count={extraBlocks.length} shared={shared}>
-                {[...extraBlocks].sort((a, b) => (a.id === focusedItemId ? -1 : b.id === focusedItemId ? 1 : 0)).map(block => {
-                  const course = COURSES[block.course] ?? COURSES.SELF;
-                  return (
-                    <TouchableOpacity
-                      key={block.id}
-                      style={[s.studyTile, { backgroundColor: theme.colors.surface, borderColor: block.id === focusedItemId ? theme.colors.accent : theme.colors.border, borderLeftColor: course.color }]}
-                      onPress={() => setFocusedItemId(block.id)}
-                    >
-                      <Text style={[s.studyTitle, { color: theme.colors.text }]}>{block.title}</Text>
-                      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>{course.label}</Text>
-                      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>{dateLabel(block.dateISO)} | {formatHour(block.startHour)} - {formatHour(block.endHour)}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
               </TaskGridSection>
             ) : null}
 
@@ -263,6 +266,33 @@ function TaskGridSection({ title, color, count, shared, children }: any) {
       </View>
       <View style={s.taskGrid}>{children}</View>
     </View>
+  );
+}
+
+function StatusBadge({ label, count, color, bg }: { label: string; count: number; color: string; bg: string }) {
+  return (
+    <View style={[s.statusBadge, { backgroundColor: bg }]}>
+      <Text style={[s.statusCount, { color }]}>{count}</Text>
+      <Text style={[s.statusLabel, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
+function CustomBlockCard({ block, theme, focused, onPress }: { block: ExtraBlock; theme: AppTheme; focused: boolean; onPress: () => void }) {
+  const course = COURSES[block.course] ?? COURSES.SELF;
+  const isTask = block.itemType === 'task';
+  return (
+    <TouchableOpacity
+      style={[s.studyTile, { backgroundColor: theme.colors.surface, borderColor: focused ? theme.colors.accent : theme.colors.border, borderLeftColor: course.color }]}
+      onPress={onPress}
+    >
+      <Text style={[s.studyType, { color: isTask ? '#DC2626' : '#7C3AED' }]}>{isTask ? 'CUSTOM TASK' : 'STUDY BLOCK'}</Text>
+      <Text style={[s.studyTitle, { color: theme.colors.text }]}>{block.title}</Text>
+      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>{course.label}</Text>
+      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>
+        {isTask ? `Due ${dateLabel(block.dueDateISO || block.dateISO)}` : `${dateLabel(block.dateISO)} | ${formatHour(block.startHour)} - ${formatHour(block.endHour)}`}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -325,6 +355,10 @@ function MiniCalendar({
           );
         })}
       </View>
+      <TouchableOpacity style={[s.calendarCta, { backgroundColor: theme.colors.accent }]} onPress={onOpen}>
+        <Text style={s.calendarCtaText}>Go to Calendar</Text>
+        <Ionicons name="arrow-forward" size={14} color="#111827" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -348,6 +382,7 @@ const s = StyleSheet.create({
   taskGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   taskTile: { width: '31.8%', minWidth: 230 },
   studyTile: { width: '31.8%', minWidth: 230, borderRadius: 10, borderWidth: 1.5, borderLeftWidth: 4, padding: 14 },
+  studyType: { fontSize: 10, fontWeight: '900', marginBottom: 6, textTransform: 'uppercase' },
   studyTitle: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
   studySub: { fontSize: 12, lineHeight: 18, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 40 },
@@ -368,4 +403,10 @@ const s = StyleSheet.create({
   miniEventList: { gap: 2, marginTop: 2 },
   miniEventPill: { borderRadius: 3, paddingHorizontal: 3, paddingVertical: 2 },
   miniEventText: { fontSize: 8, fontWeight: '800' },
+  badgeRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+  statusBadge: { flex: 1, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 14 },
+  statusCount: { fontSize: 26, fontWeight: '900' },
+  statusLabel: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', marginTop: 2 },
+  calendarCta: { marginTop: 12, borderRadius: 8, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  calendarCtaText: { color: '#111827', fontSize: 12, fontWeight: '900' },
 });
