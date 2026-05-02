@@ -6,14 +6,6 @@ import {
 import { shared } from '../../styles/shared';
 import { ExtraBlock, formatHour } from '../../data';
 
-const DURATIONS: { label: string; hours: number }[] = [
-  { label: '30 min', hours: 0.5 },
-  { label: '1 hour', hours: 1 },
-  { label: '1.5 hours', hours: 1.5 },
-  { label: '2 hours', hours: 2 },
-  { label: '3 hours', hours: 3 },
-];
-
 const COURSES_LIST = [
   { key: 'PHY', label: 'Physics 2325', color: '#3B82F6' },
   { key: 'MATH', label: 'Math 2417', color: '#22C55E' },
@@ -21,9 +13,6 @@ const COURSES_LIST = [
   { key: 'HIST', label: 'History 1301', color: '#F97316' },
   { key: 'SELF', label: 'Self-Scheduled', color: '#A855F7' },
 ];
-
-const START_HOURS: number[] = [];
-for (let h = 7; h <= 22; h += 0.5) START_HOURS.push(h);
 
 interface Props {
   visible: boolean;
@@ -45,30 +34,64 @@ function parseDateInput(value: string) {
   return date;
 }
 
+function parseClockTime(value: string, period: 'AM' | 'PM') {
+  const match = value.trim().match(/^(\d{1,2})(?::(\d{2}))?$/);
+  if (!match) return null;
+  const rawHour = Number(match[1]);
+  const minutes = Number(match[2] ?? '0');
+  if (rawHour < 1 || rawHour > 12 || minutes < 0 || minutes > 59) return null;
+  let hour = rawHour % 12;
+  if (period === 'PM') hour += 12;
+  return hour + minutes / 60;
+}
+
+function cleanDurationPart(value: string) {
+  const numeric = Number(value || '0');
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+}
+
 export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
   const [itemType, setItemType] = useState<'study' | 'task'>('study');
   const [title, setTitle] = useState('');
   const [dateInput, setDateInput] = useState(todayISO());
-  const [duration, setDuration] = useState(1);
+  const [timeInput, setTimeInput] = useState('3:00');
+  const [timePeriod, setTimePeriod] = useState<'AM' | 'PM'>('PM');
+  const [durationHours, setDurationHours] = useState('1');
+  const [durationMinutes, setDurationMinutes] = useState('0');
+  const [durationSeconds, setDurationSeconds] = useState('0');
   const [course, setCourse] = useState('SELF');
-  const [startHour, setStartHour] = useState(15);
   const [notes, setNotes] = useState('');
 
   const parsedDate = useMemo(() => parseDateInput(dateInput), [dateInput]);
-  const isValid = Boolean(title.trim() && parsedDate);
+  const parsedStartHour = useMemo(() => parseClockTime(timeInput, timePeriod), [timeInput, timePeriod]);
+  const durationTotalSeconds = useMemo(() => {
+    const h = cleanDurationPart(durationHours);
+    const m = cleanDurationPart(durationMinutes);
+    const s = cleanDurationPart(durationSeconds);
+    if (h === null || m === null || s === null || m > 59 || s > 59) return null;
+    const total = h * 3600 + m * 60 + s;
+    return total > 0 ? total : null;
+  }, [durationHours, durationMinutes, durationSeconds]);
+  const duration = durationTotalSeconds ? durationTotalSeconds / 3600 : 0;
+  const isStudyValid = itemType === 'task' || (parsedStartHour !== null && durationTotalSeconds !== null);
+  const isValid = Boolean(title.trim() && parsedDate && isStudyValid);
 
   const reset = () => {
     setItemType('study');
     setTitle('');
     setDateInput(todayISO());
-    setDuration(1);
+    setTimeInput('3:00');
+    setTimePeriod('PM');
+    setDurationHours('1');
+    setDurationMinutes('0');
+    setDurationSeconds('0');
     setCourse('SELF');
-    setStartHour(15);
     setNotes('');
   };
 
   const handleAdd = () => {
     if (!isValid || !parsedDate) return;
+    const startHour = itemType === 'study' ? parsedStartHour ?? 0 : 23;
     const endHour = Math.min(startHour + duration, 24);
     const day = parsedDate.getDay() === 0 ? 7 : parsedDate.getDay();
     onAdd({
@@ -82,6 +105,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
       dueDateISO: parsedDate.toISOString().slice(0, 10),
       notes: notes.trim(),
       itemType,
+      durationSeconds: durationTotalSeconds ?? undefined,
     });
     reset();
     onClose();
@@ -109,7 +133,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
                     style={[s.typeBtn, itemType === type && s.typeBtnActive]}
                     onPress={() => setItemType(type)}
                   >
-                    <Text style={[s.typeBtnText, itemType === type && s.typeBtnTextActive]}>
+                  <Text style={[s.typeBtnText, itemType === type && s.typeBtnTextActive]}>
                       {type === 'study' ? 'Study Block' : 'Task'}
                     </Text>
                   </TouchableOpacity>
@@ -152,22 +176,34 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
               {itemType === 'study' ? (
                 <>
                   <Text style={[s.label, { marginTop: 14 }]}>Start Time</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
-                    {START_HOURS.map(h => (
-                      <TouchableOpacity key={h} style={[s.timeChip, startHour === h && s.timeChipActive]} onPress={() => setStartHour(h)}>
-                        <Text style={[s.timeChipTxt, startHour === h && s.timeChipTxtActive]}>{formatHour(h)}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-
-                  <Text style={[s.label, { marginTop: 14 }]}>Duration</Text>
-                  <View style={s.durationRow}>
-                    {DURATIONS.map(d => (
-                      <TouchableOpacity key={d.label} style={[s.durBtn, duration === d.hours && s.durBtnActive]} onPress={() => setDuration(d.hours)}>
-                        <Text style={[s.durTxt, duration === d.hours && s.durTxtActive]}>{d.label}</Text>
+                  <View style={s.timeInputRow}>
+                    <TextInput
+                      style={[s.input, s.timeInput, parsedStartHour === null && s.inputError]}
+                      placeholder="12:00"
+                      placeholderTextColor="#9CA3AF"
+                      value={timeInput}
+                      onChangeText={setTimeInput}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                    {(['AM', 'PM'] as const).map(period => (
+                      <TouchableOpacity
+                        key={period}
+                        style={[s.periodBtn, timePeriod === period && s.periodBtnActive]}
+                        onPress={() => setTimePeriod(period)}
+                      >
+                        <Text style={[s.periodText, timePeriod === period && s.periodTextActive]}>{period}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
+                  {parsedStartHour === null ? <Text style={s.errorText}>Use a time like 12 or 12:30.</Text> : null}
+
+                  <Text style={[s.label, { marginTop: 14 }]}>Duration</Text>
+                  <View style={s.durationInputs}>
+                    <DurationInput label="Hours" value={durationHours} onChangeText={setDurationHours} />
+                    <DurationInput label="Minutes" value={durationMinutes} onChangeText={setDurationMinutes} />
+                    <DurationInput label="Seconds" value={durationSeconds} onChangeText={setDurationSeconds} />
+                  </View>
+                  {durationTotalSeconds === null ? <Text style={s.errorText}>Duration must be greater than zero. Minutes and seconds must be 0-59.</Text> : null}
                 </>
               ) : null}
 
@@ -185,7 +221,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
                 <Text style={s.previewLabel}>{itemType === 'study' ? 'Scheduled For' : 'Due'}</Text>
                 <Text style={s.previewVal}>
                   {parsedDate ? parsedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Invalid date'}
-                  {itemType === 'study' ? ` | ${formatHour(startHour)} - ${formatHour(Math.min(startHour + duration, 24))}` : ''}
+                  {itemType === 'study' && parsedStartHour !== null && durationTotalSeconds !== null ? ` | ${formatHour(parsedStartHour)} - ${formatHour(Math.min(parsedStartHour + duration, 24))}` : ''}
                 </Text>
               </View>
             </ScrollView>
@@ -203,6 +239,22 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
   );
 }
 
+function DurationInput({ label, value, onChangeText }: { label: string; value: string; onChangeText: (value: string) => void }) {
+  return (
+    <View style={s.durationField}>
+      <TextInput
+        style={[s.input, s.durationInput]}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="numeric"
+        placeholder="0"
+        placeholderTextColor="#9CA3AF"
+      />
+      <Text style={s.durationLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '700', color: '#374151', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   typeRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
@@ -216,15 +268,16 @@ const s = StyleSheet.create({
   notesInput: { minHeight: 76, textAlignVertical: 'top' },
   courseChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: 'white' },
   courseChipTxt: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  timeChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: 'white' },
-  timeChipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  timeChipTxt: { fontSize: 12, fontWeight: '700', color: '#374151' },
-  timeChipTxtActive: { color: 'white' },
-  durationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  durBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: 'white' },
-  durBtnActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  durTxt: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  durTxtActive: { color: 'white' },
+  timeInputRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  timeInput: { flex: 1 },
+  periodBtn: { width: 58, height: 50, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' },
+  periodBtnActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  periodText: { fontSize: 13, fontWeight: '900', color: '#374151' },
+  periodTextActive: { color: 'white' },
+  durationInputs: { flexDirection: 'row', gap: 10 },
+  durationField: { flex: 1 },
+  durationInput: { marginBottom: 6, textAlign: 'center' },
+  durationLabel: { fontSize: 11, fontWeight: '800', color: '#6B7280', textAlign: 'center' },
   preview: { marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#F5F3FF', borderWidth: 1.5, borderColor: '#DDD6FE' },
   previewLabel: { fontSize: 10, fontWeight: '700', color: '#5B21B6', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' },
   previewVal: { fontSize: 13, fontWeight: '700', color: '#5B21B6' },

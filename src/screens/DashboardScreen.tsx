@@ -173,7 +173,7 @@ export default function DashboardScreen({
                 </Text>
               </View>
               <TouchableOpacity style={[s.studyBtn, { backgroundColor: theme.colors.accent }]} onPress={() => setShowAddStudy(true)}>
-                <Text style={s.studyBtnTxt}>+ Add Study Block</Text>
+                <Text style={s.studyBtnTxt}>+ Add Study Block or Task</Text>
               </TouchableOpacity>
             </View>
 

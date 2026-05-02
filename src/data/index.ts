@@ -27,49 +27,49 @@ export interface Task {
 }
 
 export const TASK_DATES: Record<string, string> = {
-  t1: new Date().toISOString().slice(0, 10),
-  t2: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-  t3: '2026-03-07',
-  t4: '2026-03-17',
-  t5: '2026-03-12',
-  t6: '2026-03-14',
-  t7: '2026-03-15',
+  t1: '2026-05-01',
+  t2: '2026-05-01',
+  t3: '2026-05-02',
+  t4: '2026-05-08',
+  t5: '2026-05-05',
+  t6: '2026-05-12',
+  t7: '2026-05-15',
 };
 
 export const TASKS: Task[] = [
   {
     id: 't1', title: 'Physics HW 4', course: 'PHY',
-    due: 'Today, 11:59 PM', type: 'Homework', status: 'overdue', daysLabel: 'OVERDUE',
+    due: 'May 1, 2026, 11:59 PM', type: 'Homework', status: 'overdue', daysLabel: 'OVERDUE',
     detail: "Complete problems 4.1–4.8 from Chapter 4. Focus on Newton's Second Law applications and free-body diagrams. Submit via Canvas before midnight.",
   },
   {
     id: 't2', title: 'Calculus Problem Set 6', course: 'MATH',
-    due: 'Yesterday, 11:59 PM', type: 'Problem Set', status: 'overdue', daysLabel: 'OVERDUE',
+    due: 'May 1, 2026, 11:59 PM', type: 'Problem Set', status: 'overdue', daysLabel: 'OVERDUE',
     detail: 'Solve integration problems 6.1–6.15. Use substitution method for 6.7–6.10. Show all work for full credit. Late submissions penalized 10% per day.',
   },
   {
     id: 't3', title: 'History Essay Draft', course: 'HIST',
-    due: 'March 7, 11:59 PM', type: 'Essay', status: 'overdue', daysLabel: 'OVERDUE',
+    due: 'May 2, 2026, 11:59 PM', type: 'Essay', status: 'overdue', daysLabel: 'OVERDUE',
     detail: '1500-word draft on the causes of WWI. Must cite at least 4 primary sources. Submit via Canvas. Contact TA for late submission policy.',
   },
   {
     id: 't4', title: 'CS 3354 Project', course: 'CS',
-    due: 'March 17, 11:59 PM', type: 'Project', status: 'upcoming', daysLabel: '8 DAYS',
+    due: 'May 8, 2026, 11:59 PM', type: 'Project', status: 'upcoming', daysLabel: '6 DAYS',
     detail: 'Full-stack implementation: React frontend, Node.js backend, PostgreSQL database. Deploy to AWS. Include a README.md with setup instructions and architecture diagram.',
   },
   {
     id: 't5', title: 'Physics Quiz 2', course: 'PHY',
-    due: 'March 12, 2:00 PM', type: 'Quiz', status: 'upcoming', daysLabel: '3 DAYS',
+    due: 'May 5, 2026, 2:00 PM', type: 'Quiz', status: 'upcoming', daysLabel: '3 DAYS',
     detail: '30-minute in-class quiz. Covers Chapters 3–5: kinematics, dynamics, and work-energy theorem. No calculators. Bring a #2 pencil.',
   },
   {
     id: 't6', title: 'Calculus Exam 2', course: 'MATH',
-    due: 'March 14, 10:00 AM', type: 'Exam', status: 'upcoming', daysLabel: '5 DAYS',
+    due: 'May 12, 2026, 10:00 AM', type: 'Exam', status: 'upcoming', daysLabel: '10 DAYS',
     detail: '90-minute closed-book exam. Topics: integration techniques (substitution, by parts), area between curves, volumes of revolution. 4 formula sheets allowed.',
   },
   {
     id: 't7', title: 'Study Session: Finals', course: 'SELF',
-    due: 'March 15, 3:00 PM', type: 'Study Block', status: 'upcoming', daysLabel: 'PERSONAL',
+    due: 'May 15, 2026, 3:00 PM', type: 'Study Block', status: 'upcoming', daysLabel: 'PERSONAL',
     isPersonal: true,
     detail: 'Personal study block — Finals prep across all subjects. Allocated 2.5 hours. Location: Library Room 204. Bring all notes and practice exams.',
   },
@@ -101,6 +101,7 @@ export interface ExtraBlock {
   notes?: string;
   itemType?: 'study' | 'task';
   dueDateISO?: string;
+  durationSeconds?: number;
 }
 
 // Convert an ExtraBlock to a CalEvent so the calendar grid can render it

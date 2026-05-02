@@ -123,6 +123,9 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   const todayISO = new Date().toISOString().slice(0, 10);
   const selectedEvents = selectedDate ? monthEvents.filter(item => item.dateISO === selectedDate) : [];
   const week = weekDates(monthDate);
+  const calendarTitle = viewMode === 'month'
+    ? monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    : `${week[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${week[6].toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   const selectEvent = (item: MonthItem) => {
     setSelectedDate(item.dateISO);
@@ -131,8 +134,30 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
 
   const goToday = () => {
     const today = new Date();
-    setMonthDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    setMonthDate(today);
     setSelectedDate(today.toISOString().slice(0, 10));
+  };
+
+  const moveBackward = () => {
+    setMonthDate(current => {
+      const next = new Date(current);
+      if (viewMode === 'week') {
+        next.setDate(current.getDate() - 7);
+        return next;
+      }
+      return new Date(current.getFullYear(), current.getMonth() - 1, 1);
+    });
+  };
+
+  const moveForward = () => {
+    setMonthDate(current => {
+      const next = new Date(current);
+      if (viewMode === 'week') {
+        next.setDate(current.getDate() + 7);
+        return next;
+      }
+      return new Date(current.getFullYear(), current.getMonth() + 1, 1);
+    });
   };
 
   return (
@@ -145,16 +170,16 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
             <View style={[s.calendarCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <View style={s.monthHeader}>
                 <Text style={[s.monthTitle, { color: theme.colors.text }]}>
-                  {monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                  {calendarTitle}
                 </Text>
                 <View style={s.monthControls}>
-                  <TouchableOpacity onPress={() => setMonthDate(new Date(year, month - 1, 1))}>
+                  <TouchableOpacity onPress={moveBackward}>
                     <Ionicons name="chevron-back" size={16} color={theme.colors.textSoft} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={goToday}>
                     <Text style={[s.todayLabel, { color: theme.colors.textMuted }]}>Today</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setMonthDate(new Date(year, month + 1, 1))}>
+                  <TouchableOpacity onPress={moveForward}>
                     <Ionicons name="chevron-forward" size={16} color={theme.colors.textSoft} />
                   </TouchableOpacity>
                 </View>
@@ -287,7 +312,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
               ) : null}
 
               <TouchableOpacity style={[s.primaryBtn, { backgroundColor: '#EF0000' }]} onPress={() => setShowAddStudy(true)}>
-                <Text style={s.primaryText}>+ Create Event</Text>
+                <Text style={s.primaryText}>+ Create Study Block or Task</Text>
               </TouchableOpacity>
             </View>
           </View>
