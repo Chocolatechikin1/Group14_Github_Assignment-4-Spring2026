@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
@@ -11,6 +11,7 @@ import CalendarScreen from './src/screens/CalendarScreen';
 import AIChatScreen from './src/screens/AIChatScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import TabBar from './src/components/TabBar';
+import { ExtraBlock } from './src/data';
 import { AppTheme, darkTheme, lightTheme, RED } from './src/styles/shared';
 import { StoredUser } from './src/services/authStorage';
 
@@ -29,6 +30,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabName>('Dashboard');
   const [darkMode, setDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [extraBlocks, setExtraBlocks] = useState<ExtraBlock[]>([]);
+
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  const theme: AppTheme = darkMode ? darkTheme : lightTheme;
 
   useEffect(() => {
     Font.loadAsync({
@@ -39,8 +46,17 @@ export default function App() {
       .catch(() => setFontsLoaded(true));
   }, []);
 
-  const theme: AppTheme = darkMode ? darkTheme : lightTheme;
-  const notifications: AppNotification[] = currentUser
+  const toggleChecked = (id: string) => {
+    setChecked(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const addBlock = (block: ExtraBlock) => setExtraBlocks(prev => [...prev, block]);
+
+  const notifications: AppNotification[] = currentUser && notificationsEnabled
     ? [
         {
           id: 'n1',
@@ -60,24 +76,6 @@ export default function App() {
           message: `MiniTA emailed ${currentUser.email} with this week's assignment checklist.`,
           time: 'Yesterday',
         },
-        {
-          id: 'n4',
-          title: 'Lab Prep Notice',
-          message: 'Physics 2325 lab prep notes are due tomorrow night.',
-          time: 'Yesterday',
-        },
-        {
-          id: 'n5',
-          title: 'Group Project Check-In',
-          message: 'Your project team asked for an update before Thursday afternoon.',
-          time: '2d ago',
-        },
-        {
-          id: 'n6',
-          title: 'Reading Review',
-          message: 'History reading questions were posted and summarized for email review.',
-          time: '3d ago',
-        },
       ]
     : [];
 
@@ -95,6 +93,8 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setActiveTab('Dashboard');
+    setChecked(new Set());
+    setExtraBlocks([]);
   };
 
   if (!currentUser) {
@@ -106,6 +106,8 @@ export default function App() {
     );
   }
 
+  const openSettings = () => setActiveTab('Settings');
+
   const renderScreen = () => {
     switch (activeTab) {
       case 'Dashboard':
@@ -115,13 +117,32 @@ export default function App() {
             currentUser={currentUser}
             theme={theme}
             notifications={notifications}
-            onOpenSettings={() => setActiveTab('Settings')}
+            onOpenSettings={openSettings}
+            checked={checked}
+            toggleChecked={toggleChecked}
+            extraBlocks={extraBlocks}
+            addBlock={addBlock}
           />
         );
       case 'Calendar':
-        return <CalendarScreen theme={theme} netId={currentUser.netId} notifications={notifications} onOpenSettings={() => setActiveTab('Settings')} />;
+        return (
+          <CalendarScreen
+            theme={theme}
+            netId={currentUser.netId}
+            notifications={notifications}
+            onOpenSettings={openSettings}
+            extraBlocks={extraBlocks}
+          />
+        );
       case 'AI Chat':
-        return <AIChatScreen theme={theme} netId={currentUser.netId} notifications={notifications} onOpenSettings={() => setActiveTab('Settings')} />;
+        return (
+          <AIChatScreen
+            theme={theme}
+            netId={currentUser.netId}
+            notifications={notifications}
+            onOpenSettings={openSettings}
+          />
+        );
       case 'Settings':
         return (
           <SettingsScreen
@@ -133,25 +154,36 @@ export default function App() {
             onToggleNotifications={setNotificationsEnabled}
             notifications={notifications}
             theme={theme}
-            onOpenSettings={() => setActiveTab('Settings')}
+            onOpenSettings={openSettings}
           />
         );
     }
   };
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1 }}>
       <StatusBar style="light" backgroundColor={theme.colors.brand} />
-      <View style={[styles.root, { backgroundColor: theme.colors.screen }]}>
+      <View style={[styles.root, isDesktop && styles.rootDesktop, { backgroundColor: theme.colors.screen }]}>
+        {isDesktop ? (
+          <TabBar activeTab={activeTab} onChangeTab={setActiveTab} theme={theme} isDesktop />
+        ) : null}
         <View style={styles.content}>{renderScreen()}</View>
-        <TabBar activeTab={activeTab} onChangeTab={setActiveTab} theme={theme} />
+        {!isDesktop ? (
+          <TabBar activeTab={activeTab} onChangeTab={setActiveTab} theme={theme} />
+        ) : null}
       </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { flex: 1 },
+  root: {
+    flex: 1,
+    fontFamily: Platform.OS === 'web'
+      ? 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+      : undefined,
+  },
+  rootDesktop: { flexDirection: 'row' },
+  content: { flex: 1, overflow: 'hidden' },
   loadingRoot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

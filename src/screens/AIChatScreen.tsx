@@ -3,10 +3,13 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AppNotification } from '../../App';
 import { PROMPT_CHIPS, AI_REPLIES, nowTime } from '../data';
 import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
+
+declare const process: any;
 
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
 
@@ -38,10 +41,29 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const chatSessionRef = useRef<any>(null);
 
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const apiKey = process?.env?.EXPO_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) return;
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      systemInstruction:
+        'You are MiniTA, an AI teaching assistant. Help students with assignments, syllabi, study plans, and grade calculations. Keep answers friendly, concise, and coursework focused.',
+    });
+    chatSessionRef.current = model.startChat({
+      history: INITIAL_MSGS.map(msg => ({
+        role: msg.role === 'ai' ? 'model' : 'user',
+        parts: [{ text: msg.text }],
+      })),
+    });
+  }, []);
 
   useEffect(() => {
     if (!typing) return;
@@ -56,7 +78,7 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
     return () => a.stop();
   }, [typing, dot1, dot2, dot3]);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     const t = text.trim();
     if (!t || typing) return;
     const userMsg: ChatMsg = { id: Date.now().toString(), role: 'user', text: t, time: nowTime() };
@@ -65,15 +87,29 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
     setTyping(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
-    setTimeout(() => {
-      const reply =
-        AI_REPLIES[t] ??
+    try {
+      let reply = AI_REPLIES[t];
+      if (!reply && chatSessionRef.current) {
+        const result = await chatSessionRef.current.sendMessage(t);
+        reply = result.response.text();
+      }
+      reply =
+        reply ??
         `That's a great question. Based on your current workload, would you like me to:\n\n- Prioritize overdue tasks\n- Build a study schedule\n- Estimate your current grades\n\nJust let me know.`;
       const aiMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: reply, time: nowTime() };
       setMessages(prev => [...prev, aiMsg]);
+    } catch {
+      const errMsg: ChatMsg = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        text: "Sorry, I'm having trouble connecting right now. I can still help with the built-in study prompts.",
+        time: nowTime(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
       setTyping(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    }, 1800);
+    }
   };
 
   return (

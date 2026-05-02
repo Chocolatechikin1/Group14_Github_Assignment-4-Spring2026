@@ -77,6 +77,31 @@ export interface CalEvent {
   detail: string;
 }
 
+// User-created study blocks. Stored on the app and rendered in both
+// the Dashboard list AND the Calendar week grid.
+export interface ExtraBlock {
+  id: string;
+  title: string;
+  course: keyof typeof COURSES;
+  day: number;        // 1=Mon … 7=Sun
+  startHour: number;  // 24h float
+  endHour: number;
+}
+
+// Convert an ExtraBlock to a CalEvent so the calendar grid can render it
+// using the same code path as scheduled events.
+export function extraBlockToCalEvent(b: ExtraBlock): CalEvent {
+  return {
+    id: b.id,
+    title: b.title,
+    course: b.course,
+    day: b.day,
+    startHour: b.startHour,
+    endHour: b.endHour,
+    detail: `Personal study block — ${formatHour(b.startHour)} to ${formatHour(b.endHour)}.`,
+  };
+}
+
 export const CAL_EVENTS: CalEvent[] = [
   { id: 'e1', title: 'Physics Quiz 2',     course: 'PHY',  day: 1, startHour: 14,   endHour: 15,   detail: 'Quiz in ECSS 2.312. Bring pencil & eraser. Covers Ch 3–5. No late arrivals admitted.' },
   { id: 'e2', title: 'CS Proj Meeting',    course: 'CS',   day: 3, startHour: 15,   endHour: 16.5, detail: 'Team sync in ECS 1.204. Review sprint deliverables and merge conflicts. Standup format.' },

@@ -1,137 +1,85 @@
-# MiniTA Mobile App
+# MiniTA — fixed build
 
-## Description
-AI Teaching Assistant – React Native / Expo mobile app.
+A React Native + Expo app, runs on iOS, Android, and web.
 
-## Features
-(mention features here)
-
----
-
-## Quick Start (2 steps)
-
-### 1. Install dependencies
+## Setup (first time)
 
 ```bash
 npm install
 ```
 
-### 2. Run on simulator
-
+If you hit `EMFILE: too many open files` on macOS, install Watchman:
 ```bash
-# iOS Simulator (Mac only)
-npm run ios
-
-# Android Emulator
-npm run android
-
-# Or open interactively (scan QR with Expo Go app)
-npm start
+brew install watchman
 ```
 
----
+## Run
 
-## Project Structure
-
-```
-minita-app/
-├── App.tsx                         # Root – tab navigation
-├── index.js                        # Expo entry point
-├── app.json                        # Expo config (name, icons, splash)
-├── package.json                    # Dependencies
-├── tsconfig.json                   # TypeScript config
-├── babel.config.js                 # Babel config
-├── assets/                         # App icons & splash screen
-│   ├── icon.png
-│   ├── splash.png
-│   ├── adaptive-icon.png
-│   └── favicon.png
-└── src/
-    ├── data/
-    │   └── index.ts                # All tasks, events, AI replies, helpers
-    ├── styles/
-    │   └── shared.ts               # Shared colors, shadows, StyleSheet
-    ├── navigation/                 # (reserved for future use)
-    ├── components/
-    │   ├── Header.tsx              # Top header (logo + avatar + bell)
-    │   ├── TabBar.tsx              # Bottom tab bar (4 tabs)
-    │   ├── TaskCard.tsx            # Reusable task card
-    │   └── modals/
-    │       ├── TaskDetailModal.tsx  # Task detail bottom sheet
-    │       ├── EventDetailModal.tsx # Calendar event detail
-    │       ├── ConflictModal.tsx    # Schedule conflict warning
-    │       └── AddStudyModal.tsx    # Add study block form
-    └── screens/
-        ├── DashboardScreen.tsx     # Main dashboard (tasks, search)
-        ├── CalendarScreen.tsx      # Weekly calendar view
-        ├── AIChatScreen.tsx        # MiniTA AI chat interface
-        └── SettingsScreen.tsx      # Settings & toggles
+Web (in your browser at http://localhost:8081):
+```bash
+npm run web
 ```
 
----
+iOS / Android / dev menu:
+```bash
+npx expo start
+```
+Then press `w` for web, `i` for iOS simulator, `a` for Android, or scan the QR
+code with Expo Go on your phone.
 
-## Interactive Features
+## What changed in this build
 
-### Dashboard
-| Feature | Action |
-|---|---|
-| Search bar | Filters tasks live as you type |
-| Checkboxes | Tap to mark tasks done (strikethrough) |
-| View Details | Opens bottom sheet with full info |
-| Mark Complete | Marks task done from detail modal |
-| + Study Block | Opens form to add a personal block |
-| Summary chips | Done chip → Calendar; Overdue → filters |
-| Pro Tip button | Navigates to AI Chat tab |
+**DashboardScreen**
+- Web/desktop layout with a max-width centered container.
+- Right-hand class schedule sidebar (Mon–Fri, 6 AM–10 PM) appears on screens
+  ≥ 900 px wide. Class blocks are positioned by start/end time and colored by
+  course.
+- Summary chips (Overdue / Upcoming / Done / Study) now filter the visible
+  task list. An active filter shows a banner across the top with a "Show all"
+  shortcut.
+- The Done count is derived from your toggled checkboxes.
 
-### Calendar
-| Feature | Action |
-|---|---|
-| Day pills | Tap to switch day view |
-| Wednesday | Auto-shows conflict warning |
-| Conflict banner | Tap to re-open conflict modal |
-| Event blocks | Tap for event detail modal |
-| Reschedule CTA | Shows action confirmation |
+**TaskDetailModal**
+- "Mark as Complete" is now a real toggle — re-tap to mark incomplete.
+- A green banner shows when a task is marked complete.
 
-### AI Chat
-| Feature | Action |
-|---|---|
-| Prompt chips | Send pre-written questions instantly |
-| Type + Send | Real AI-style responses with typing animation |
-| 📎 attach | Placeholder attachment button |
-| Clear button | Resets chat to initial message |
+**Header → NotificationModal** (new)
+- The bell icon now opens a modal with seeded notifications, unread dots,
+  per-item "tap to mark read", and a "Mark all as read" action.
 
-### Settings
-| Feature | Action |
-|---|---|
-| Dark Mode | Toggle on/off |
-| High Contrast | Toggle on/off |
-| Push Notifications | Toggle on/off |
-| Large Text | Toggle on/off |
-| All row items | Tap for Alert feedback |
-| Sign Out | Confirmation dialog |
+**AddStudyModal**
+- Day-of-week picker, start time picker (8 AM–7 PM in 30-min steps), and
+  duration. Live preview shows the scheduled day & time.
 
-### Login Page
-(description here)
+**Calendar sync**
+- Custom study blocks added on the Dashboard now show up in the Calendar
+  week grid alongside scheduled events.
 
----
+**Shared state**
+- Completed tasks (`checked`) and custom study blocks (`extraBlocks`) are
+  lifted into App.tsx so the Dashboard and Calendar share one source of
+  truth.
 
-## Design Tokens
+## File map
 
-| Token | Value |
-|---|---|
-| Primary (Canvas Red) | `#BC0001` |
-| AI Purple | `#7C3AED` |
-| Physics Blue | `#3B82F6` |
-| Math Green | `#22C55E` |
-| History Orange | `#F97316` |
-| CS Red | `#DC2626` |
-| Personal Purple | `#A855F7` |
-
----
-
-## 🛠 Requirements
-
-- Node.js 18+
-- Expo CLI (`npm install -g expo-cli`) or `npx expo`
-- Xcode (iOS simulator) or Android Studio (Android emulator)
-- Or install **Expo Go** on a physical device and scan the QR code from `npm start`
+```
+App.tsx                                  ← shared state lives here
+src/data/index.ts                        ← TASKS, COURSES, CAL_EVENTS, ExtraBlock type
+src/screens/
+  DashboardScreen.tsx                    ← redesigned (class schedule + filters)
+  CalendarScreen.tsx                     ← merges extra blocks into the grid
+  AIChatScreen.tsx
+  SettingsScreen.tsx
+  LoginScreen.tsx
+src/components/
+  Header.tsx                             ← bell opens NotificationModal
+  TaskCard.tsx
+  TabBar.tsx
+  modals/
+    TaskDetailModal.tsx                  ← Mark-as-Complete toggle
+    AddStudyModal.tsx                    ← day + start time pickers
+    NotificationModal.tsx                ← NEW
+    EventDetailModal.tsx
+    ConflictModal.tsx
+src/styles/shared.ts
+```

@@ -1,6 +1,7 @@
 import { Platform, StyleSheet } from 'react-native';
 
 export const RED = '#BC0001';
+export const ACCENT = RED;
 export const LIGHT_RED = '#D65254';
 export const GOLD = '#D4A63A';
 export const SOFT_GOLD = '#F4D58D';
