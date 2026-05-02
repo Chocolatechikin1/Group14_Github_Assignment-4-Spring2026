@@ -46,6 +46,7 @@ function dateLabel(dateISO?: string) {
 }
 
 function monthCells(monthDate: Date) {
+  // Build a calendar grid with leading/trailing blanks so every row has exactly seven cells.
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
@@ -94,6 +95,7 @@ export default function DashboardScreen({
   const firstName = currentUser.firstName || currentUser.fullName.split(' ')[0] || currentUser.netId;
 
   const calendarItems = useMemo<CalendarItem[]>(() => {
+    // The dashboard mini-calendar needs both seeded assignments and user-created blocks.
     const taskItems = TASKS.map(task => ({
       id: `task-${task.id}`,
       taskId: task.id,
@@ -132,6 +134,7 @@ export default function DashboardScreen({
   const focusedBlock = extraBlocks.find(block => block.id === focusedItemId);
 
   const focusCalendarItem = (item: CalendarItem) => {
+    // Clicking a mini-calendar event reuses search to surface the matching card first.
     setFocusedItemId(item.taskId ?? item.blockId ?? null);
     setSearch(item.title);
   };
@@ -340,6 +343,7 @@ function StatusBadge({ label, count, color, bg }: { label: string; count: number
 }
 
 function durationText(block: ExtraBlock) {
+  // Study blocks store duration in seconds so exact user-entered values survive editing.
   const seconds = block.durationSeconds ?? Math.max(0, Math.round((block.endHour - block.startHour) * 3600));
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -368,6 +372,7 @@ function CustomBlockCard({
 }) {
   const course = COURSES[block.course] ?? COURSES.SELF;
   const isTask = block.itemType === 'task';
+  // Custom cards intentionally mirror seeded TaskCard metadata so the dashboard feels cohesive.
   return (
     <View style={[s.customCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderLeftColor: course.color }, checked && s.cardDone]}>
       <View style={s.customHeader}>

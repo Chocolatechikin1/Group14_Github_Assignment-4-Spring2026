@@ -89,6 +89,7 @@ export const darkTheme: AppTheme = {
 };
 
 export const SHADOW = Platform.select({
+  // Native platforms use real shadows/elevation; web safely receives an empty fallback object.
   ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
   android: { elevation: 3 },
 }) ?? {};

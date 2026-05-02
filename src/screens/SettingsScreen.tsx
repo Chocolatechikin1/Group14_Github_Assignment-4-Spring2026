@@ -63,6 +63,7 @@ export default function SettingsScreen({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
 
+  // Each row describes its own icon, label, value, and optional action.
   const sections: { section: string; items: SettingItem[] }[] = [
     {
       section: 'Account',
@@ -127,6 +128,7 @@ export default function SettingsScreen({
   };
 
   const handlePasswordUpdate = async () => {
+    // Client-side checks give quick feedback before asking the local auth service to update.
     if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
       setStatusMessage('Please fill in every password field.');
       return;

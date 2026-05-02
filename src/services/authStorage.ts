@@ -26,6 +26,7 @@ function isWeb() {
 }
 
 function splitName(fullName: string) {
+  // Registration stores first/last names separately while still accepting one full-name string.
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   return {
     firstName: parts[0] ?? 'Student',
@@ -34,6 +35,7 @@ function splitName(fullName: string) {
 }
 
 function normalizeUser(rawUser: Partial<StoredUser> & { fullName?: string; netId?: string; email?: string; major?: string; passwordHash?: string }): StoredUser {
+  // Normalize partial records so older saved users and new registrations share one shape.
   const fullName = rawUser.fullName?.trim() || 'Student User';
   const names = splitName(fullName);
   const netId = rawUser.netId?.trim() || 'student';
@@ -103,6 +105,7 @@ async function appendLine(key: string, path: string, line: string) {
 }
 
 function deserializeUsers(raw: string): StoredUser[] {
+  // Users are stored as one JSON record per line to keep the demo storage easy to inspect.
   return raw
     .split('\n')
     .map(line => line.trim())
@@ -129,6 +132,7 @@ export async function registerUser(input: {
   classLevel?: string;
   courses?: string[];
 }) {
+  // Local registration rejects duplicate NetIDs before writing the new user record.
   const users = await readUsers();
   const normalizedNetId = input.netId.trim().toLowerCase();
   const existing = users.find(user => user.netId.toLowerCase() === normalizedNetId);
@@ -159,6 +163,7 @@ export async function registerUser(input: {
 }
 
 export async function loginUser(netId: string, password: string) {
+  // Login hashes the entered password and compares it with the locally stored hash.
   const users = await readUsers();
   const normalizedNetId = netId.trim().toLowerCase();
   const passwordHash = await hashPassword(password);
@@ -184,6 +189,7 @@ export async function updateUserPassword(input: {
   currentPassword: string;
   newPassword: string;
 }) {
+  // Password changes require the current password so accidental account edits are blocked.
   const users = await readUsers();
   const normalizedNetId = input.netId.trim().toLowerCase();
   const currentPasswordHash = await hashPassword(input.currentPassword);

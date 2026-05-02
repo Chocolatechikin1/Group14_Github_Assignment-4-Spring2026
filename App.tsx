@@ -39,6 +39,7 @@ export default function App() {
   const theme: AppTheme = darkMode ? darkTheme : lightTheme;
 
   useEffect(() => {
+    // Vector icon fonts must load before the first screen renders, otherwise icons can flash blank.
     Font.loadAsync({
       ...Ionicons.font,
       ...MaterialCommunityIcons.font,
@@ -48,6 +49,7 @@ export default function App() {
   }, []);
 
   const toggleChecked = (id: string) => {
+    // Store completed item ids in a Set so seeded tasks and custom items can share one checkbox system.
     setChecked(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);

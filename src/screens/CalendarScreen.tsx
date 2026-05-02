@@ -70,6 +70,7 @@ function eventColor(item: MonthItem) {
 }
 
 function monthCells(monthDate: Date) {
+  // Month view uses null cells as visual blanks before/after the real month days.
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
@@ -89,6 +90,7 @@ function dateToISO(date: Date) {
 }
 
 function weekDates(anchor: Date) {
+  // The selected week always starts on Sunday to match the calendar header.
   const start = new Date(anchor);
   start.setDate(anchor.getDate() - anchor.getDay());
   return Array.from({ length: 7 }, (_, index) => {
@@ -115,6 +117,7 @@ function taskKind(type: string): MonthItem['kind'] {
 }
 
 function durationText(seconds?: number, startHour?: number, endHour?: number) {
+  // Prefer exact stored seconds, then fall back to the difference between start/end hours.
   const totalSeconds = seconds ?? (startHour !== undefined && endHour !== undefined ? Math.max(0, Math.round((endHour - startHour) * 3600)) : 0);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -168,6 +171,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   const dragOffsetHours = useRef(0);
 
   const monthEvents = useMemo<MonthItem[]>(() => {
+    // Normalize seeded assignment dates and custom items into one list for month/week details.
     const taskEvents = TASKS.map(task => ({
       id: `task-${task.id}`,
       title: task.title,
@@ -227,6 +231,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   };
 
   const measureDropZones = () => {
+    // Month view drag-and-drop measures each date cell so pointer coordinates map to a day.
     const entries = Object.entries(zoneRefs.current);
     const nextZones: DropZone[] = [];
     measuredZones.current = [];
@@ -255,6 +260,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
     ) ?? null;
 
   const measureWeekGrid = () => {
+    // Week view drag-and-drop measures the all-day row and timed grid separately.
     weekGridRef.current?.measureInWindow?.((x: number, y: number, widthValue: number, heightValue: number) => {
       weekLayout.current = { x, y, width: widthValue, height: heightValue };
     });
@@ -300,6 +306,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   });
 
   const updateScheduledBlock = (block: ExtraBlock, dateISO: string, startHour: number, endHour: number, item: MonthItem) => {
+    // Timed study blocks keep their title/course/details while date, time, and duration change.
     if (hasConflict(block, dateISO, startHour, endHour)) {
       setWarning('That time overlaps with another study block. Pick an open time slot.');
       return false;
@@ -322,6 +329,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   };
 
   const updateTaskDate = (block: ExtraBlock, dateISO: string, item: MonthItem) => {
+    // Tasks do not have time ranges, so dragging them only changes the date.
     const updatedDate = new Date(`${dateISO}T12:00:00`);
     const updatedBlock: ExtraBlock = {
       ...block,

@@ -27,6 +27,7 @@ function todayISO() {
 }
 
 function parseDateInput(value: string) {
+  // Only accept ISO dates so calendar math can stay predictable across browsers.
   const trimmed = value.trim();
   const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
@@ -37,6 +38,7 @@ function parseDateInput(value: string) {
 }
 
 function parseClockTime(value: string, period: 'AM' | 'PM') {
+  // Convert user-entered 12-hour time into the 24-hour decimal format used by calendar blocks.
   const match = value.trim().match(/^(\d{1,2})(?::(\d{2}))?$/);
   if (!match) return null;
   const rawHour = Number(match[1]);
@@ -79,6 +81,7 @@ export default function AddStudyModal({ visible, onClose, onAdd, initialBlock = 
   const parsedDate = useMemo(() => parseDateInput(dateInput), [dateInput]);
   const parsedStartHour = useMemo(() => parseClockTime(timeInput, timePeriod), [timeInput, timePeriod]);
   const durationTotalSeconds = useMemo(() => {
+    // Validate duration parts together because minutes/seconds must remain under 60.
     const h = cleanDurationPart(durationHours);
     const m = cleanDurationPart(durationMinutes);
     const s = cleanDurationPart(durationSeconds);
@@ -92,6 +95,7 @@ export default function AddStudyModal({ visible, onClose, onAdd, initialBlock = 
   const editing = Boolean(initialBlock);
 
   useEffect(() => {
+    // Opening in edit mode preloads the existing item; opening fresh resets the form.
     if (!visible) return;
     if (!initialBlock) {
       reset();
@@ -127,6 +131,7 @@ export default function AddStudyModal({ visible, onClose, onAdd, initialBlock = 
 
   const handleAdd = () => {
     if (!isValid || !parsedDate) return;
+    // Tasks are all-day due-date items; study blocks carry start/end times.
     const startHour = itemType === 'study' ? parsedStartHour ?? 0 : 23;
     const endHour = Math.min(startHour + duration, 24);
     const day = parsedDate.getDay() === 0 ? 7 : parsedDate.getDay();

@@ -16,6 +16,7 @@ interface Props {
 export default function Header({ right, netId, theme, notifications = [], onProfilePress }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // Use the NetID as a compact avatar label when a full profile photo is not available.
   const initials = netId ? netId.slice(0, 2).toUpperCase() : 'NG';
   const shared = useMemo(() => getSharedStyles(theme), [theme]);
 

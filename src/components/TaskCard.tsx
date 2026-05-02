@@ -13,6 +13,7 @@ interface Props {
 }
 
 export default function TaskCard({ task, checked, onCheck, onViewDetails, theme }: Props) {
+  // Course metadata controls the left border, dot, badge, and details button color.
   const course = COURSES[task.course];
 
   return (

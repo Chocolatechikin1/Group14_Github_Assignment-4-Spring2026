@@ -51,6 +51,7 @@ export default function LoginScreen({ onLogin }: Props) {
   };
 
   const handleSignIn = () => {
+    // Login requires both fields before calling local auth storage.
     if (!netId.trim() || !password.trim()) {
       setFormError('Please enter your NetID and password.');
       return;
@@ -64,6 +65,7 @@ export default function LoginScreen({ onLogin }: Props) {
   };
 
   const handleRegister = () => {
+    // Registration creates a demo account with default profile/course values.
     if (!firstName.trim() || !lastName.trim() || !netId.trim() || !password.trim()) {
       setFormError('Please fill in all fields.');
       return;

@@ -25,6 +25,7 @@ interface Props {
 export default function TabBar({ activeTab, onChangeTab, theme, isDesktop = false }: Props) {
   const insets = useSafeAreaInsets();
 
+  // Desktop uses a sidebar so the content can remain visible while switching sections.
   if (isDesktop) {
     return (
       <View style={[s.sidebar, { backgroundColor: theme.colors.tabBar, borderRightColor: theme.colors.border }]}>

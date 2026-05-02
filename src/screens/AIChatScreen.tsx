@@ -3,25 +3,15 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AppNotification } from '../../App';
-import { PROMPT_CHIPS, nowTime } from '../data';
+import { AI_REPLIES, PROMPT_CHIPS, nowTime } from '../data';
 import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
 
-declare const process: any;
-
-function getGeminiApiKey() {
-  try {
-    return process.env.EXPO_PUBLIC_GEMINI_API_KEY as string | undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-// Messages use the same shape whether they come from canned examples or the API.
+// Messages use one shape so the UI can render seed messages and generated replies alike.
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
 
+// These starter messages make the AI page feel populated before the user sends a prompt.
 const INITIAL_MSGS: ChatMsg[] = [
   {
     id: 'm0', role: 'ai', time: '2:30 PM',
@@ -37,28 +27,26 @@ const INITIAL_MSGS: ChatMsg[] = [
   },
 ];
 
-function createMiniTAChatSession() {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) return null;
+function localMiniTAReply(prompt: string) {
+  const normalizedPrompt = prompt.trim().toLowerCase();
+  const exactMatch = Object.entries(AI_REPLIES).find(([key]) => key.toLowerCase() === normalizedPrompt);
+  if (exactMatch) return exactMatch[1];
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction:
-        "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Keep the conversation focused on relevant coursework and student planning.",
-    });
-
-    return model.startChat({
-      history: [
-        { role: 'user', parts: [{ text: INITIAL_MSGS[1].text }] },
-        { role: 'model', parts: [{ text: INITIAL_MSGS[2].text }] },
-      ],
-    });
-  } catch (error) {
-    console.warn('MiniTA AI setup failed:', error);
-    return null;
+  // Keyword fallback keeps free-form typing useful without requiring an external API.
+  if (normalizedPrompt.includes('due') || normalizedPrompt.includes('deadline')) {
+    return AI_REPLIES['List all my upcoming due dates sorted by urgency.'];
   }
+  if (normalizedPrompt.includes('study') || normalizedPrompt.includes('plan')) {
+    return AI_REPLIES['Generate a study plan for my upcoming exams.'];
+  }
+  if (normalizedPrompt.includes('grade') || normalizedPrompt.includes('final')) {
+    return AI_REPLIES['Calculate what grade I need on the final to get an A in CS 3354.'];
+  }
+  if (normalizedPrompt.includes('physics') || normalizedPrompt.includes('quiz') || normalizedPrompt.includes('exam tips')) {
+    return AI_REPLIES['Give me exam tips for Physics Quiz 2 covering Chapters 3–5.'];
+  }
+
+  return "I can help with study planning, due dates, grade calculations, and exam tips. Try asking what's due next, how to plan your study time, or what grade you need on the final.";
 }
 
 interface Props {
@@ -70,19 +58,16 @@ interface Props {
 
 export default function AIChatScreen({ theme, netId, notifications, onOpenSettings }: Props) {
   const shared = getSharedStyles(theme);
+  // The chat state is local-only so this branch works without an API key or backend service.
   const [messages, setMessages] = useState<ChatMsg[]>(INITIAL_MSGS);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const chatSessionRef = useRef<any>(null);
 
+  // Animated values drive the three bouncing dots in the "typing" indicator.
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    chatSessionRef.current = createMiniTAChatSession();
-  }, []);
 
   useEffect(() => {
     if (!typing) return;
@@ -100,6 +85,7 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
   const send = async (text: string) => {
     const t = text.trim();
     if (!t || typing) return;
+    // Add the user's message immediately, then append the assistant response after a short delay.
     const userMsg: ChatMsg = { id: Date.now().toString(), role: 'user', text: t, time: nowTime() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -107,11 +93,9 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      if (!chatSessionRef.current) {
-        throw new Error('MiniTA AI is still waiting for an API key.');
-      }
-      const result = await chatSessionRef.current.sendMessage(t);
-      const reply = result.response.text();
+      // A short delay preserves the chat pacing users expect from an assistant.
+      await new Promise(resolve => setTimeout(resolve, 450));
+      const reply = localMiniTAReply(t);
       const aiMsg: ChatMsg = { id: (Date.now() + 1).toString(), role: 'ai', text: reply, time: nowTime() };
       setMessages(prev => [...prev, aiMsg]);
     } catch {
@@ -133,21 +117,20 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
       <Header theme={theme} netId={netId} notifications={notifications} onProfilePress={onOpenSettings} />
 
       <View style={s.pageShell}>
-      <View style={[s.aiStrip, { backgroundColor: theme.colors.brandSoft, borderBottomColor: theme.colors.border }]}>
-        <View style={[s.aiAvatar, { backgroundColor: theme.colors.accentSoft }]}>
-          <Text style={[s.aiAvatarTxt, { color: theme.colors.accent }]}>AI</Text>
+        <View style={[s.aiStrip, { backgroundColor: theme.colors.brandSoft, borderBottomColor: theme.colors.border }]}>
+          <View style={[s.aiAvatar, { backgroundColor: theme.colors.accentSoft }]}>
+            <Text style={[s.aiAvatarTxt, { color: theme.colors.accent }]}>AI</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.aiName, { color: theme.colors.text }]}>MiniTA Assistant</Text>
+            <Text style={[s.aiStatus, { color: theme.colors.textMuted }]}>{typing ? 'Typing...' : 'Local demo mode | Ready to help'}</Text>
+          </View>
+          <TouchableOpacity style={[s.clearBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => {
+            setMessages([INITIAL_MSGS[0]]);
+          }}>
+            <Text style={[s.clearBtnTxt, { color: theme.colors.accent }]}>Clear</Text>
+          </TouchableOpacity>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.aiName, { color: theme.colors.text }]}>MiniTA Assistant</Text>
-          <Text style={[s.aiStatus, { color: theme.colors.textMuted }]}>{typing ? 'Typing...' : 'Online | Ready to help'}</Text>
-        </View>
-        <TouchableOpacity style={[s.clearBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => {
-          setMessages([INITIAL_MSGS[0]]);
-          chatSessionRef.current = createMiniTAChatSession();
-        }}>
-          <Text style={[s.clearBtnTxt, { color: theme.colors.accent }]}>Clear</Text>
-        </TouchableOpacity>
-      </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView

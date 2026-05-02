@@ -11,6 +11,7 @@ export const COURSES: Record<string, { color: string; label: string }> = {
 };
 
 export interface Task {
+  // Seeded tasks simulate assignments that would normally come from a backend/class database.
   id: string;
   title: string;
   course: keyof typeof COURSES;
@@ -33,6 +34,7 @@ export const TASK_DATES: Record<string, string> = {
 };
 
 export const TASKS: Task[] = [
+  // Dates are intentionally current to May 2026 so the demo calendar has visible test data.
   {
     id: 't1', title: 'Physics HW 4', course: 'PHY',
     due: 'May 1, 2026, 11:59 PM', type: 'Homework', status: 'overdue', daysLabel: 'OVERDUE',
@@ -153,6 +155,7 @@ export const HOURS      = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 export const HOUR_LABELS = ['8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM'];
 
 export function formatHour(h: number): string {
+  // Calendar times are stored as decimal hours, then formatted for display here.
   const hh   = Math.floor(h);
   const mm   = h % 1 === 0.5 ? '30' : '00';
   const ampm = hh < 12 ? 'AM' : 'PM';
@@ -161,6 +164,7 @@ export function formatHour(h: number): string {
 }
 
 export function daysColor(label?: string): object {
+  // Urgency badges get warmer colors as the due date gets closer.
   const n = parseInt(label ?? '99', 10);
   if (n <= 3) return { backgroundColor: '#FEE2E2' };
   if (n <= 5) return { backgroundColor: '#DBEAFE' };
