@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  TextInput, StyleSheet, SafeAreaView, useWindowDimensions, Platform,
+  TextInput, StyleSheet, SafeAreaView, useWindowDimensions, Platform, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { AppNotification, TabName } from '../../App';
@@ -81,6 +81,7 @@ export default function DashboardScreen({
   const { width } = useWindowDimensions();
   const isWide = width >= 1000;
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<ExtraBlock | null>(null);
   const [search, setSearch] = useState('');
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -120,8 +121,9 @@ export default function DashboardScreen({
   const overdue = visibleTasks.filter(task => task.status === 'overdue' && !checked.has(task.id));
   const upcoming = visibleTasks.filter(task => task.status === 'upcoming' && !checked.has(task.id));
   const done = visibleTasks.filter(task => checked.has(task.id));
-  const customUpcoming = extraBlocks.filter(block => !isOverdueDate(block.dateISO));
-  const customOverdue = extraBlocks.filter(block => isOverdueDate(block.dateISO));
+  const customUpcoming = extraBlocks.filter(block => !isOverdueDate(block.dateISO) && !checked.has(block.id));
+  const customOverdue = extraBlocks.filter(block => isOverdueDate(block.dateISO) && !checked.has(block.id));
+  const customDone = extraBlocks.filter(block => checked.has(block.id));
   const focusedBlock = extraBlocks.find(block => block.id === focusedItemId);
 
   const focusCalendarItem = (item: CalendarItem) => {
@@ -180,7 +182,7 @@ export default function DashboardScreen({
             <View style={s.badgeRow}>
               <StatusBadge label="Upcoming" count={upcoming.length + customUpcoming.length} color="#1D4ED8" bg="#DBEAFE" />
               <StatusBadge label="Overdue" count={overdue.length + customOverdue.length} color="#DC2626" bg="#FEE2E2" />
-              <StatusBadge label="Done" count={done.length} color="#15803D" bg="#DCFCE7" />
+              <StatusBadge label="Done" count={done.length + customDone.length} color="#15803D" bg="#DCFCE7" />
             </View>
 
             {!isWide ? (
@@ -194,7 +196,14 @@ export default function DashboardScreen({
                 </View>
               ))}
               {customUpcoming.map(block => (
-                <CustomBlockCard key={block.id} block={block} theme={theme} focused={block.id === focusedItemId} onPress={() => setFocusedItemId(block.id)} />
+                <CustomBlockCard
+                  key={block.id}
+                  block={block}
+                  theme={theme}
+                  checked={checked.has(block.id)}
+                  onCheck={toggleChecked}
+                  onViewDetails={setSelectedBlock}
+                />
               ))}
             </TaskGridSection>
 
@@ -205,16 +214,33 @@ export default function DashboardScreen({
                 </View>
               ))}
               {customOverdue.map(block => (
-                <CustomBlockCard key={block.id} block={block} theme={theme} focused={block.id === focusedItemId} onPress={() => setFocusedItemId(block.id)} />
+                <CustomBlockCard
+                  key={block.id}
+                  block={block}
+                  theme={theme}
+                  checked={checked.has(block.id)}
+                  onCheck={toggleChecked}
+                  onViewDetails={setSelectedBlock}
+                />
               ))}
             </TaskGridSection>
 
-            {done.length > 0 ? (
-              <TaskGridSection title="Completed" color="#22C55E" count={done.length} shared={shared}>
+            {done.length + customDone.length > 0 ? (
+              <TaskGridSection title="Completed" color="#22C55E" count={done.length + customDone.length} shared={shared}>
                 {done.map(task => (
                   <View key={task.id} style={s.taskTile}>
                     <TaskCard task={task} checked={checked.has(task.id)} onCheck={toggleChecked} onViewDetails={setSelectedTask} theme={theme} />
                   </View>
+                ))}
+                {customDone.map(block => (
+                  <CustomBlockCard
+                    key={block.id}
+                    block={block}
+                    theme={theme}
+                    checked={checked.has(block.id)}
+                    onCheck={toggleChecked}
+                    onViewDetails={setSelectedBlock}
+                  />
                 ))}
               </TaskGridSection>
             ) : null}
@@ -249,6 +275,13 @@ export default function DashboardScreen({
         onClose={() => setSelectedTask(null)}
         onToggleComplete={toggleChecked}
       />
+      <CustomBlockDetailModal
+        block={selectedBlock}
+        theme={theme}
+        isComplete={selectedBlock ? checked.has(selectedBlock.id) : false}
+        onClose={() => setSelectedBlock(null)}
+        onToggleComplete={toggleChecked}
+      />
       <AddStudyModal visible={showAddStudy} onClose={() => setShowAddStudy(false)} onAdd={addBlock} />
     </SafeAreaView>
   );
@@ -278,21 +311,135 @@ function StatusBadge({ label, count, color, bg }: { label: string; count: number
   );
 }
 
-function CustomBlockCard({ block, theme, focused, onPress }: { block: ExtraBlock; theme: AppTheme; focused: boolean; onPress: () => void }) {
+function durationText(block: ExtraBlock) {
+  const seconds = block.durationSeconds ?? Math.max(0, Math.round((block.endHour - block.startHour) * 3600));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  const parts = [];
+  if (hours) parts.push(`${hours} hr${hours === 1 ? '' : 's'}`);
+  if (minutes) parts.push(`${minutes} min`);
+  if (remainingSeconds) parts.push(`${remainingSeconds} sec`);
+  return parts.length ? parts.join(' ') : '0 min';
+}
+
+function CustomBlockCard({
+  block,
+  theme,
+  checked,
+  onCheck,
+  onViewDetails,
+}: {
+  block: ExtraBlock;
+  theme: AppTheme;
+  checked: boolean;
+  onCheck: (id: string) => void;
+  onViewDetails: (block: ExtraBlock) => void;
+}) {
   const course = COURSES[block.course] ?? COURSES.SELF;
   const isTask = block.itemType === 'task';
   return (
-    <TouchableOpacity
-      style={[s.studyTile, { backgroundColor: theme.colors.surface, borderColor: focused ? theme.colors.accent : theme.colors.border, borderLeftColor: course.color }]}
-      onPress={onPress}
-    >
-      <Text style={[s.studyType, { color: isTask ? '#DC2626' : '#7C3AED' }]}>{isTask ? 'CUSTOM TASK' : 'STUDY BLOCK'}</Text>
-      <Text style={[s.studyTitle, { color: theme.colors.text }]}>{block.title}</Text>
+    <View style={[s.customCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderLeftColor: course.color }, checked && s.cardDone]}>
+      <View style={s.customHeader}>
+        <TouchableOpacity
+          onPress={() => onCheck(block.id)}
+          style={[
+            s.checkbox,
+            { borderColor: theme.colors.textSoft, backgroundColor: theme.colors.surfaceMuted },
+            checked && { backgroundColor: course.color, borderColor: course.color },
+          ]}
+        >
+          {checked ? <Text style={s.checkMark}>OK</Text> : null}
+        </TouchableOpacity>
+        <View style={[s.customDot, { backgroundColor: course.color }]} />
+        <View style={{ flex: 1 }} />
+        <View style={[s.customBadge, { backgroundColor: `${course.color}22` }]}>
+          <Text style={[s.customBadgeText, { color: course.color }]}>{isTask ? 'TASK' : 'STUDY'}</Text>
+        </View>
+      </View>
+      <Text style={[s.studyTitle, { color: checked ? theme.colors.textSoft : theme.colors.text }, checked && { textDecorationLine: 'line-through' }]}>{block.title}</Text>
       <Text style={[s.studySub, { color: theme.colors.textMuted }]}>{course.label}</Text>
       <Text style={[s.studySub, { color: theme.colors.textMuted }]}>
-        {isTask ? `Due ${dateLabel(block.dueDateISO || block.dateISO)}` : `${dateLabel(block.dateISO)} | ${formatHour(block.startHour)} - ${formatHour(block.endHour)}`}
+        {isTask
+          ? `Due ${dateLabel(block.dueDateISO || block.dateISO)}`
+          : `${dateLabel(block.dateISO)} | ${formatHour(block.startHour)} | ${durationText(block)}`}
       </Text>
-    </TouchableOpacity>
+      <TouchableOpacity style={[s.viewBtn, { backgroundColor: course.color }]} onPress={() => onViewDetails(block)}>
+        <Text style={s.viewBtnText}>View Details</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function CustomBlockDetailModal({
+  block,
+  theme,
+  isComplete,
+  onClose,
+  onToggleComplete,
+}: {
+  block: ExtraBlock | null;
+  theme: AppTheme;
+  isComplete: boolean;
+  onClose: () => void;
+  onToggleComplete: (id: string) => void;
+}) {
+  if (!block) return null;
+  const course = COURSES[block.course] ?? COURSES.SELF;
+  const isTask = block.itemType === 'task';
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.modalOverlay}>
+        <View style={[s.detailSheet, { backgroundColor: theme.colors.surface }]}>
+          <View style={s.sheetHandle} />
+          <View style={[s.colorBar, { backgroundColor: course.color }]} />
+          <View style={s.detailHeader}>
+            <Text style={[s.detailTitle, { color: theme.colors.text }]}>{block.title}</Text>
+            <TouchableOpacity onPress={onClose} style={[s.modalClose, { backgroundColor: theme.colors.surfaceMuted }]}>
+              <Text style={[s.modalCloseText, { color: theme.colors.textMuted }]}>x</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={[s.coursePill, { backgroundColor: `${course.color}22` }]}>
+            <View style={[s.customDot, { backgroundColor: course.color }]} />
+            <Text style={[s.coursePillText, { color: course.color }]}>{course.label}</Text>
+          </View>
+          {isComplete ? (
+            <View style={s.completeBanner}>
+              <Text style={s.completeBannerText}>Marked as complete</Text>
+            </View>
+          ) : null}
+          <View style={s.detailGrid}>
+            <DetailCell label={isTask ? 'Due Date' : 'Start Date'} value={dateLabel(block.dueDateISO || block.dateISO)} theme={theme} />
+            <DetailCell label="Type" value={isTask ? 'Task' : 'Study Block'} theme={theme} />
+            <DetailCell label="Status" value={isComplete ? 'Done' : isOverdueDate(block.dateISO) ? 'Overdue' : 'Upcoming'} theme={theme} />
+          </View>
+          {!isTask ? (
+            <View style={s.detailGrid}>
+              <DetailCell label="Start Time" value={formatHour(block.startHour)} theme={theme} />
+              <DetailCell label="Duration" value={durationText(block)} theme={theme} />
+            </View>
+          ) : null}
+          <Text style={[s.detailHead, { color: theme.colors.text }]}>Description</Text>
+          <Text style={[s.detailBody, { color: theme.colors.textMuted }]}>{block.notes || (isTask ? 'Personal task.' : 'Personal study block.')}</Text>
+          <TouchableOpacity style={[s.detailCta, { backgroundColor: isComplete ? '#9CA3AF' : course.color }]} onPress={() => onToggleComplete(block.id)}>
+            <Text style={s.detailCtaText}>{isComplete ? 'Mark as Incomplete' : 'Mark as Complete'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.detailDismiss} onPress={onClose}>
+            <Text style={[s.detailDismissText, { color: theme.colors.textMuted }]}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DetailCell({ label, value, theme }: { label: string; value: string; theme: AppTheme }) {
+  return (
+    <View style={[s.detailCell, { backgroundColor: theme.colors.surfaceMuted }]}>
+      <Text style={[s.detailCellLabel, { color: theme.colors.textSoft }]}>{label}</Text>
+      <Text style={[s.detailCellValue, { color: theme.colors.text }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -381,10 +528,18 @@ const s = StyleSheet.create({
   sectionWrap: { marginBottom: 18 },
   taskGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   taskTile: { width: '31.8%', minWidth: 230 },
-  studyTile: { width: '31.8%', minWidth: 230, borderRadius: 10, borderWidth: 1.5, borderLeftWidth: 4, padding: 14 },
-  studyType: { fontSize: 10, fontWeight: '900', marginBottom: 6, textTransform: 'uppercase' },
+  customCard: { width: '31.8%', minWidth: 230, borderRadius: 14, borderWidth: 1, borderLeftWidth: 4, padding: 14, marginBottom: 12 },
+  cardDone: { opacity: 0.7 },
+  customHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
+  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  checkMark: { color: '#111827', fontSize: 8, fontWeight: '800' },
+  customDot: { width: 10, height: 10, borderRadius: 5 },
+  customBadge: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+  customBadgeText: { fontSize: 10, fontWeight: '800' },
   studyTitle: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
   studySub: { fontSize: 12, lineHeight: 18, fontWeight: '600' },
+  viewBtn: { marginTop: 12, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  viewBtnText: { color: 'white', fontWeight: '800', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 40 },
   emptyTxt: { fontSize: 13, fontWeight: '700', marginTop: 10 },
   proTip: { borderRadius: 8, borderWidth: 1, padding: 14, marginTop: 4 },
@@ -409,4 +564,26 @@ const s = StyleSheet.create({
   statusLabel: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', marginTop: 2 },
   calendarCta: { marginTop: 12, borderRadius: 8, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
   calendarCtaText: { color: '#111827', fontSize: 12, fontWeight: '900' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  detailSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 16 },
+  colorBar: { height: 6, borderRadius: 3, marginBottom: 16 },
+  detailHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
+  detailTitle: { flex: 1, fontSize: 19, fontWeight: '900' },
+  modalClose: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  modalCloseText: { fontSize: 14, fontWeight: '900' },
+  coursePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 16 },
+  coursePillText: { fontSize: 13, fontWeight: '800' },
+  completeBanner: { backgroundColor: '#DCFCE7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 12, borderWidth: 1, borderColor: '#86EFAC' },
+  completeBannerText: { color: '#15803D', fontWeight: '800', fontSize: 13 },
+  detailGrid: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  detailCell: { flex: 1, borderRadius: 10, padding: 10 },
+  detailCellLabel: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 3 },
+  detailCellValue: { fontSize: 13, fontWeight: '800' },
+  detailHead: { fontSize: 13, fontWeight: '900', marginBottom: 6 },
+  detailBody: { fontSize: 13, lineHeight: 20, marginBottom: 20 },
+  detailCta: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginBottom: 10 },
+  detailCtaText: { color: 'white', fontWeight: '900', fontSize: 14 },
+  detailDismiss: { paddingVertical: 10, alignItems: 'center' },
+  detailDismissText: { fontWeight: '700', fontSize: 13 },
 });

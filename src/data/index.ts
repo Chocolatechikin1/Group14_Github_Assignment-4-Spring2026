@@ -71,7 +71,7 @@ export const TASKS: Task[] = [
     id: 't7', title: 'Study Session: Finals', course: 'SELF',
     due: 'May 15, 2026, 3:00 PM', type: 'Study Block', status: 'upcoming', daysLabel: 'PERSONAL',
     isPersonal: true,
-    detail: 'Personal study block — Finals prep across all subjects. Allocated 2.5 hours. Location: Library Room 204. Bring all notes and practice exams.',
+    detail: 'Personal study block - Finals prep across all subjects. Duration: 2 hours 30 minutes. Location: Library Room 204. Bring all notes and practice exams.',
   },
 ];
 

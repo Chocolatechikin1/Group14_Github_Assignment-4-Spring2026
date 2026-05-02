@@ -29,6 +29,8 @@ type MonthItem = {
   detail: string;
   kind: 'assignment' | 'study' | 'exam' | 'personal';
   typeLabel?: string;
+  durationSeconds?: number;
+  itemType?: 'study' | 'task';
 };
 type CalendarView = 'month' | 'week';
 
@@ -81,6 +83,18 @@ function taskKind(type: string): MonthItem['kind'] {
   return 'assignment';
 }
 
+function durationText(seconds?: number, startHour?: number, endHour?: number) {
+  const totalSeconds = seconds ?? (startHour !== undefined && endHour !== undefined ? Math.max(0, Math.round((endHour - startHour) * 3600)) : 0);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+  const parts = [];
+  if (hours) parts.push(`${hours} hr${hours === 1 ? '' : 's'}`);
+  if (minutes) parts.push(`${minutes} min`);
+  if (remainingSeconds) parts.push(`${remainingSeconds} sec`);
+  return parts.length ? parts.join(' ') : '0 min';
+}
+
 export default function CalendarScreen({ theme, netId, notifications, onOpenSettings, extraBlocks = [], addBlock }: Props) {
   const shared = useMemo(() => getSharedStyles(theme), [theme]);
   const { width } = useWindowDimensions();
@@ -113,6 +127,8 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
         detail: block.notes || (block.itemType === 'task' ? 'Personal task.' : 'Personal study block.'),
         kind: block.itemType === 'task' ? 'assignment' as const : 'personal' as const,
         typeLabel: block.itemType === 'task' ? 'Personal Task' : 'Study Block',
+        durationSeconds: block.durationSeconds,
+        itemType: block.itemType,
       }));
     return [...taskEvents, ...blockEvents];
   }, [extraBlocks]);
@@ -293,8 +309,11 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                   <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Type: {selectedEvent.typeLabel ?? selectedEvent.kind}</Text>
                   <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Course: {COURSES[selectedEvent.course]?.label}</Text>
                   <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Due Date: {longDate(selectedEvent.dateISO)}</Text>
-                  {selectedEvent.startHour !== undefined && selectedEvent.endHour !== undefined ? (
+                  {selectedEvent.itemType !== 'task' && selectedEvent.startHour !== undefined && selectedEvent.endHour !== undefined ? (
                     <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Study Time: {formatHour(selectedEvent.startHour)} - {formatHour(selectedEvent.endHour)}</Text>
+                  ) : null}
+                  {selectedEvent.itemType !== 'task' && selectedEvent.startHour !== undefined && selectedEvent.endHour !== undefined ? (
+                    <Text style={[s.selectedLine, { color: theme.colors.textMuted }]}>Duration: {durationText(selectedEvent.durationSeconds, selectedEvent.startHour, selectedEvent.endHour)}</Text>
                   ) : null}
                   <Text style={[s.descriptionLabel, { color: theme.colors.text }]}>Description</Text>
                   <Text style={[s.selectedDetail, { color: theme.colors.text }]}>{selectedEvent.detail}</Text>
