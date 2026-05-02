@@ -10,7 +10,14 @@ import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
 
 declare const process: any;
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+function getGeminiApiKey() {
+  try {
+    return process.env.EXPO_PUBLIC_GEMINI_API_KEY as string | undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // Messages use the same shape whether they come from canned examples or the API.
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
@@ -31,10 +38,11 @@ const INITIAL_MSGS: ChatMsg[] = [
 ];
 
 function createMiniTAChatSession() {
-  if (!GEMINI_API_KEY) return null;
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return null;
 
   try {
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
       systemInstruction:
