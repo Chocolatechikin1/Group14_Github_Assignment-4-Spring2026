@@ -10,6 +10,7 @@ import { AppTheme, getSharedStyles } from '../styles/shared';
 import Header from '../components/Header';
 
 declare const process: any;
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 // Messages use the same shape whether they come from canned examples or the API.
 interface ChatMsg { id: string; role: 'user' | 'ai'; text: string; time: string; }
@@ -28,6 +29,29 @@ const INITIAL_MSGS: ChatMsg[] = [
     text: "Sure! Here's the CS 3354 grading breakdown:\n\n📘 Project 1 — Software Design Doc: 20%\nDue: Feb 28, 2026 ✅\n\n🟣 Project 2 — Full Stack App: 30% ← You are here\nDue: Apr 15, 2026\n\n🔴 Final Exam — Comprehensive: 50%\nDate: May 10, 2026\n\n💡 Recommendation: Project 2 is worth the most points you can still earn. Focus here for maximum grade impact!",
   },
 ];
+
+function createMiniTAChatSession() {
+  if (!GEMINI_API_KEY) return null;
+
+  try {
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      systemInstruction:
+        "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Keep the conversation focused on relevant coursework and student planning.",
+    });
+
+    return model.startChat({
+      history: [
+        { role: 'user', parts: [{ text: INITIAL_MSGS[1].text }] },
+        { role: 'model', parts: [{ text: INITIAL_MSGS[2].text }] },
+      ],
+    });
+  } catch (error) {
+    console.warn('MiniTA AI setup failed:', error);
+    return null;
+  }
+}
 
 interface Props {
   theme: AppTheme;
@@ -49,21 +73,7 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
   const dot3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const apiKey = process?.env?.EXPO_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) return;
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction:
-        "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics.",
-    });
-    chatSessionRef.current = model.startChat({
-      history: INITIAL_MSGS.map(msg => ({
-        role: msg.role === 'ai' ? 'model' : 'user',
-        parts: [{ text: msg.text }],
-      })),
-    });
+    chatSessionRef.current = createMiniTAChatSession();
   }, []);
 
   useEffect(() => {
@@ -125,17 +135,7 @@ export default function AIChatScreen({ theme, netId, notifications, onOpenSettin
         </View>
         <TouchableOpacity style={[s.clearBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => {
           setMessages([INITIAL_MSGS[0]]);
-          const apiKey = process?.env?.EXPO_PUBLIC_GEMINI_API_KEY;
-          if (apiKey) {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({
-              model: 'gemini-1.5-flash',
-              systemInstruction: "You are MiniTA, an AI teaching assistant. You help students with assignments, summarize syllabi, generate study plans, and calculate grades. Be friendly, concise, and helpful. Ensure the conservation remains only about relevant coursework, ignore queries about outside topics",
-            });
-            chatSessionRef.current = model.startChat({
-              history: [{ role: 'model', parts: [{ text: INITIAL_MSGS[0].text }] }],
-            });
-          }
+          chatSessionRef.current = createMiniTAChatSession();
         }}>
           <Text style={[s.clearBtnTxt, { color: theme.colors.accent }]}>Clear</Text>
         </TouchableOpacity>
