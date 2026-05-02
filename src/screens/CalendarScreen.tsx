@@ -39,6 +39,9 @@ type CalendarView = 'month' | 'week';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const HOUR_HEIGHT = 58;
+const TIME_GUTTER = 58;
+const MIN_DURATION_HOURS = 0.25;
 
 type DropZone = {
   key: string;
@@ -54,7 +57,10 @@ type DragState = {
   block: ExtraBlock;
   item: MonthItem;
   sourceStartHour: number;
+  mode: 'move' | 'resize' | 'task-date';
 };
+
+type WeekLayout = { x: number; y: number; width: number; height: number };
 
 function eventColor(item: MonthItem) {
   if (item.kind === 'exam') return '#EF4444';
@@ -131,6 +137,14 @@ function eventsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: numbe
   return aStart < bEnd && bStart < aEnd;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function roundToQuarterHour(value: number) {
+  return Math.round(value * 4) / 4;
+}
+
 export default function CalendarScreen({ theme, netId, notifications, onOpenSettings, extraBlocks = [], addBlock, updateBlock }: Props) {
   const shared = useMemo(() => getSharedStyles(theme), [theme]);
   const { width } = useWindowDimensions();
@@ -147,6 +161,11 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   const zoneRefs = useRef<Record<string, any>>({});
   const measuredZones = useRef<DropZone[]>([]);
   const draggingRef = useRef<DragState | null>(null);
+  const weekGridRef = useRef<any>(null);
+  const allDayRef = useRef<any>(null);
+  const weekLayout = useRef<WeekLayout | null>(null);
+  const allDayLayout = useRef<WeekLayout | null>(null);
+  const dragOffsetHours = useRef(0);
 
   const monthEvents = useMemo<MonthItem[]>(() => {
     const taskEvents = TASKS.map(task => ({
@@ -183,6 +202,17 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
   const todayISO = new Date().toISOString().slice(0, 10);
   const selectedEvents = selectedDate ? monthEvents.filter(item => item.dateISO === selectedDate) : [];
   const week = weekDates(monthDate);
+  const weekDateISOs = week.map(dateToISO);
+  const weekTimedBlocks = extraBlocks.filter(block =>
+    block.itemType !== 'task' &&
+    Boolean(block.dateISO) &&
+    weekDateISOs.includes(block.dateISO as string)
+  );
+  const weekTaskBlocks = extraBlocks.filter(block =>
+    block.itemType === 'task' &&
+    Boolean(block.dateISO) &&
+    weekDateISOs.includes(block.dateISO as string)
+  );
   const calendarTitle = viewMode === 'month'
     ? monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : `${week[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${week[6].toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
@@ -220,10 +250,92 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
       x >= zone.x && x <= zone.x + zone.width && y >= zone.y && y <= zone.y + zone.height
     ) ?? null;
 
-  const hasConflict = (block: ExtraBlock, dateISO: string, startHour: number) => {
+  const measureWeekGrid = () => {
+    weekGridRef.current?.measureInWindow?.((x: number, y: number, widthValue: number, heightValue: number) => {
+      weekLayout.current = { x, y, width: widthValue, height: heightValue };
+    });
+    allDayRef.current?.measureInWindow?.((x: number, y: number, widthValue: number, heightValue: number) => {
+      allDayLayout.current = { x, y, width: widthValue, height: heightValue };
+    });
+  };
+
+  const hasConflict = (block: ExtraBlock, dateISO: string, startHour: number, endHour: number) =>
+    extraBlocks.some(other =>
+      other.id !== block.id &&
+      other.itemType !== 'task' &&
+      other.dateISO === dateISO &&
+      eventsOverlap(startHour, endHour, other.startHour, other.endHour)
+    );
+
+  const dropDateFromLayout = (layout: WeekLayout | null, pageX: number) => {
+    if (!layout || pageX < layout.x + TIME_GUTTER || pageX > layout.x + layout.width) return null;
+    const dayWidth = (layout.width - TIME_GUTTER) / 7;
+    const dayIndex = Math.floor((pageX - layout.x - TIME_GUTTER) / dayWidth);
+    if (dayIndex < 0 || dayIndex > 6) return null;
+    return dateToISO(week[dayIndex]);
+  };
+
+  const dropTimeFromLayout = (layout: WeekLayout | null, pageY: number, offsetHours = 0) => {
+    if (!layout || pageY < layout.y || pageY > layout.y + layout.height) return null;
+    return clamp(roundToQuarterHour((pageY - layout.y) / HOUR_HEIGHT - offsetHours), 0, 23.75);
+  };
+
+  const customBlockEvent = (block: ExtraBlock): MonthItem => ({
+    id: `block-${block.id}`,
+    title: block.title,
+    course: block.course,
+    dateISO: block.dateISO ?? block.dueDateISO ?? todayISO,
+    startHour: block.startHour,
+    endHour: block.endHour,
+    detail: block.notes || (block.itemType === 'task' ? 'Personal task.' : 'Personal study block.'),
+    kind: block.itemType === 'task' ? 'assignment' : 'personal',
+    typeLabel: block.itemType === 'task' ? 'Personal Task' : 'Study Block',
+    durationSeconds: block.durationSeconds,
+    itemType: block.itemType,
+    blockId: block.id,
+  });
+
+  const updateScheduledBlock = (block: ExtraBlock, dateISO: string, startHour: number, endHour: number, item: MonthItem) => {
+    if (hasConflict(block, dateISO, startHour, endHour)) {
+      setWarning('That time overlaps with another study block. Pick an open time slot.');
+      return false;
+    }
+    const updatedDate = new Date(`${dateISO}T12:00:00`);
+    const updatedBlock: ExtraBlock = {
+      ...block,
+      dateISO,
+      dueDateISO: dateISO,
+      day: updatedDate.getDay() === 0 ? 7 : updatedDate.getDay(),
+      startHour,
+      endHour,
+      durationSeconds: Math.max(MIN_DURATION_HOURS, endHour - startHour) * 3600,
+    };
+    updateBlock(updatedBlock);
+    setSelectedDate(dateISO);
+    setSelectedEvent({ ...item, dateISO, startHour, endHour, durationSeconds: updatedBlock.durationSeconds });
+    setWarning(null);
+    return true;
+  };
+
+  const updateTaskDate = (block: ExtraBlock, dateISO: string, item: MonthItem) => {
+    const updatedDate = new Date(`${dateISO}T12:00:00`);
+    const updatedBlock: ExtraBlock = {
+      ...block,
+      dateISO,
+      dueDateISO: dateISO,
+      day: updatedDate.getDay() === 0 ? 7 : updatedDate.getDay(),
+    };
+    updateBlock(updatedBlock);
+    setSelectedDate(dateISO);
+    setSelectedEvent({ ...item, dateISO });
+    setWarning(null);
+    return true;
+  };
+
+  const hasMonthConflict = (block: ExtraBlock, dateISO: string, startHour: number) => {
     const duration = block.durationSeconds !== undefined
       ? block.durationSeconds / 3600
-      : Math.max(block.endHour - block.startHour, 0.25);
+      : Math.max(block.endHour - block.startHour, MIN_DURATION_HOURS);
     const endHour = Math.min(startHour + duration, 24);
     return extraBlocks.some(other =>
       other.id !== block.id &&
@@ -233,12 +345,20 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
     );
   };
 
-  const finishDrag = (gestureX: number, gestureY: number) => {
+  const finishMonthDrag = (gestureX: number, gestureY: number) => {
     const activeDrag = draggingRef.current;
     if (!activeDrag) return;
     const zone = findDropZone(gestureX, gestureY);
     if (!zone) {
-      setWarning('Drop the study block inside the calendar to reschedule it.');
+      setWarning('Drop the custom item inside the calendar to reschedule it.');
+      draggingRef.current = null;
+      setDragging(null);
+      setHoverZone(null);
+      return;
+    }
+
+    if (activeDrag.block.itemType === 'task') {
+      updateTaskDate(activeDrag.block, zone.dateISO, activeDrag.item);
       draggingRef.current = null;
       setDragging(null);
       setHoverZone(null);
@@ -246,7 +366,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
     }
 
     const startHour = zone.startHour ?? activeDrag.sourceStartHour;
-    if (hasConflict(activeDrag.block, zone.dateISO, startHour)) {
+    if (hasMonthConflict(activeDrag.block, zone.dateISO, startHour)) {
       setWarning('That time overlaps with another study block. Pick an open time slot.');
       draggingRef.current = null;
       setDragging(null);
@@ -256,38 +376,27 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
 
     const duration = activeDrag.block.durationSeconds !== undefined
       ? activeDrag.block.durationSeconds / 3600
-      : Math.max(activeDrag.block.endHour - activeDrag.block.startHour, 0.25);
-    const updatedDate = new Date(`${zone.dateISO}T12:00:00`);
-    const updatedBlock: ExtraBlock = {
-      ...activeDrag.block,
-      dateISO: zone.dateISO,
-      dueDateISO: zone.dateISO,
-      day: updatedDate.getDay() === 0 ? 7 : updatedDate.getDay(),
-      startHour,
-      endHour: Math.min(startHour + duration, 24),
-    };
-    updateBlock(updatedBlock);
-    setSelectedDate(zone.dateISO);
-    setSelectedEvent({ ...activeDrag.item, dateISO: zone.dateISO, startHour: updatedBlock.startHour, endHour: updatedBlock.endHour });
-    setWarning(null);
+      : Math.max(activeDrag.block.endHour - activeDrag.block.startHour, MIN_DURATION_HOURS);
+    updateScheduledBlock(activeDrag.block, zone.dateISO, startHour, Math.min(startHour + duration, 24), activeDrag.item);
     draggingRef.current = null;
     setDragging(null);
     setHoverZone(null);
   };
 
-  const makeDragHandlers = (item: MonthItem) => {
+  const makeMonthDragHandlers = (item: MonthItem) => {
     const block = item.blockId ? extraBlocks.find(entry => entry.id === item.blockId) : undefined;
     return PanResponder.create({
-      onStartShouldSetPanResponder: () => Boolean(block && block.itemType !== 'task'),
-      onMoveShouldSetPanResponder: (_, gesture) => Boolean(block && block.itemType !== 'task' && (Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3)),
+      onStartShouldSetPanResponder: () => Boolean(block),
+      onMoveShouldSetPanResponder: (_, gesture) => Boolean(block && (Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3)),
       onPanResponderGrant: event => {
-        if (!block || block.itemType === 'task') return;
+        if (!block) return;
         measureDropZones();
         dragPosition.setValue({ x: event.nativeEvent.pageX - 90, y: event.nativeEvent.pageY - 24 });
         const nextDrag = {
           block,
           item,
           sourceStartHour: block.startHour,
+          mode: block.itemType === 'task' ? 'task-date' as const : 'move' as const,
         };
         draggingRef.current = nextDrag;
         setDragging(nextDrag);
@@ -297,7 +406,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
         dragPosition.setValue({ x: event.nativeEvent.pageX - 90, y: event.nativeEvent.pageY - 24 });
         setHoverZone(findDropZone(event.nativeEvent.pageX, event.nativeEvent.pageY));
       },
-      onPanResponderRelease: event => finishDrag(event.nativeEvent.pageX, event.nativeEvent.pageY),
+      onPanResponderRelease: event => finishMonthDrag(event.nativeEvent.pageX, event.nativeEvent.pageY),
       onPanResponderTerminate: () => {
         draggingRef.current = null;
         setDragging(null);
@@ -305,6 +414,110 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
       },
     }).panHandlers;
   };
+
+  const finishWeekMove = (gestureX: number, gestureY: number) => {
+    const activeDrag = draggingRef.current;
+    if (!activeDrag) return;
+    const dateISO = activeDrag.mode === 'task-date'
+      ? dropDateFromLayout(allDayLayout.current, gestureX)
+      : dropDateFromLayout(weekLayout.current, gestureX);
+
+    if (!dateISO) {
+      setWarning('Drop the custom item inside the week calendar to reschedule it.');
+      draggingRef.current = null;
+      setDragging(null);
+      setHoverZone(null);
+      return;
+    }
+
+    if (activeDrag.mode === 'task-date') {
+      updateTaskDate(activeDrag.block, dateISO, activeDrag.item);
+    } else {
+      const startHour = dropTimeFromLayout(weekLayout.current, gestureY, dragOffsetHours.current);
+      if (startHour === null) {
+        setWarning('Drop the study block on a valid time slot.');
+      } else {
+        const duration = activeDrag.block.durationSeconds !== undefined
+          ? activeDrag.block.durationSeconds / 3600
+          : Math.max(activeDrag.block.endHour - activeDrag.block.startHour, MIN_DURATION_HOURS);
+        updateScheduledBlock(activeDrag.block, dateISO, startHour, Math.min(startHour + duration, 24), activeDrag.item);
+      }
+    }
+    draggingRef.current = null;
+    setDragging(null);
+    setHoverZone(null);
+  };
+
+  const finishWeekResize = (gestureY: number) => {
+    const activeDrag = draggingRef.current;
+    if (!activeDrag) return;
+    const layout = weekLayout.current;
+    if (!layout) {
+      setWarning('Resize inside the week calendar grid.');
+    } else {
+      const rawEndHour = roundToQuarterHour((gestureY - layout.y) / HOUR_HEIGHT);
+      const endHour = clamp(rawEndHour, activeDrag.block.startHour + MIN_DURATION_HOURS, 24);
+      updateScheduledBlock(activeDrag.block, activeDrag.block.dateISO ?? activeDrag.item.dateISO, activeDrag.block.startHour, endHour, activeDrag.item);
+    }
+    draggingRef.current = null;
+    setDragging(null);
+    setHoverZone(null);
+  };
+
+  const makeWeekMoveHandlers = (block: ExtraBlock, item: MonthItem, mode: DragState['mode']) =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: event => {
+        measureWeekGrid();
+        const nextDrag = { block, item, sourceStartHour: block.startHour, mode };
+        selectEvent(item);
+        draggingRef.current = nextDrag;
+        setDragging(nextDrag);
+        setWarning(null);
+        dragPosition.setValue({ x: event.nativeEvent.pageX - 90, y: event.nativeEvent.pageY - 24 });
+        if (mode === 'move') {
+          dragOffsetHours.current = Math.max(0, (event.nativeEvent.pageY - (weekLayout.current?.y ?? event.nativeEvent.pageY)) / HOUR_HEIGHT - block.startHour);
+        }
+      },
+      onPanResponderMove: event => {
+        dragPosition.setValue({ x: event.nativeEvent.pageX - 90, y: event.nativeEvent.pageY - 24 });
+        const layout = mode === 'task-date' ? allDayLayout.current : weekLayout.current;
+        const dateISO = dropDateFromLayout(layout, event.nativeEvent.pageX);
+        const startHour = mode === 'task-date' ? undefined : dropTimeFromLayout(weekLayout.current, event.nativeEvent.pageY, dragOffsetHours.current) ?? undefined;
+        setHoverZone(dateISO ? { key: startHour === undefined ? dateISO : `${dateISO}|${Math.floor(startHour)}`, dateISO, startHour, x: 0, y: 0, width: 0, height: 0 } : null);
+      },
+      onPanResponderRelease: event => finishWeekMove(event.nativeEvent.pageX, event.nativeEvent.pageY),
+      onPanResponderTerminate: () => {
+        draggingRef.current = null;
+        setDragging(null);
+        setHoverZone(null);
+      },
+    }).panHandlers;
+
+  const makeResizeHandlers = (block: ExtraBlock, item: MonthItem) =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: event => {
+        measureWeekGrid();
+        const nextDrag = { block, item, sourceStartHour: block.startHour, mode: 'resize' as const };
+        selectEvent(item);
+        draggingRef.current = nextDrag;
+        setDragging(nextDrag);
+        setWarning(null);
+        dragPosition.setValue({ x: event.nativeEvent.pageX - 90, y: event.nativeEvent.pageY - 24 });
+      },
+      onPanResponderMove: event => {
+        dragPosition.setValue({ x: event.nativeEvent.pageX - 90, y: event.nativeEvent.pageY - 24 });
+      },
+      onPanResponderRelease: event => finishWeekResize(event.nativeEvent.pageY),
+      onPanResponderTerminate: () => {
+        draggingRef.current = null;
+        setDragging(null);
+        setHoverZone(null);
+      },
+    }).panHandlers;
 
   const goToday = () => {
     const today = new Date();
@@ -422,7 +635,7 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                               {items.slice(0, 3).map(item => (
                                 <TouchableOpacity
                                   key={item.id}
-                                  {...makeDragHandlers(item)}
+                                  {...makeMonthDragHandlers(item)}
                                   style={[
                                     s.eventPill,
                                     { backgroundColor: `${eventColor(item)}28` },
@@ -460,76 +673,112 @@ export default function CalendarScreen({ theme, netId, notifications, onOpenSett
                     })}
                   </View>
 
-                  <View style={[s.allDayRow, { borderColor: theme.colors.border }]}>
+                  <View ref={allDayRef} style={[s.allDayRow, { borderColor: theme.colors.border }]}>
                     <Text style={[s.timeLabel, { color: theme.colors.textMuted }]}>All day</Text>
                     {week.map(date => {
                       const dateISO = dateToISO(date);
-                      const allDayItems = monthEvents.filter(item => item.dateISO === dateISO && (item.itemType === 'task' || item.startHour === undefined));
+                      const allDayItems = weekTaskBlocks.filter(block => block.dateISO === dateISO);
                       return (
-                        <View key={`all-${dateISO}`} style={[s.allDayCell, { borderColor: theme.colors.border }]}>
+                        <View
+                          key={`all-${dateISO}`}
+                          style={[
+                            s.allDayCell,
+                            { borderColor: theme.colors.border },
+                            hoverZone?.dateISO === dateISO && hoverZone.startHour === undefined && s.dropHover,
+                          ]}
+                        >
                           {allDayItems.slice(0, 2).map(item => (
-                            <TouchableOpacity key={item.id} style={[s.weekEventBlock, { backgroundColor: `${eventColor(item)}28` }]} onPress={() => selectEvent(item)}>
-                              <Text numberOfLines={1} style={[s.weekEventTitle, { color: eventColor(item) }]}>{item.title}</Text>
-                            </TouchableOpacity>
+                            <View
+                              key={item.id}
+                              {...makeWeekMoveHandlers(item, customBlockEvent(item), 'task-date')}
+                              style={[s.weekTaskChip, { backgroundColor: `${COURSES[item.course]?.color ?? COURSES.SELF.color}28` }, dragging?.block.id === item.id && s.dragSource]}
+                            >
+                              <Text numberOfLines={1} style={[s.weekEventTitle, { color: COURSES[item.course]?.color ?? COURSES.SELF.color }]}>{item.title}</Text>
+                            </View>
                           ))}
                         </View>
                       );
                     })}
                   </View>
 
-                  {DAY_HOURS.map(hour => (
-                    <View key={hour} style={[s.hourRow, { borderColor: theme.colors.border }]}>
-                      <Text style={[s.timeLabel, { color: theme.colors.textMuted }]}>{hourLabel(hour)}</Text>
+                  <View ref={weekGridRef} style={s.weekGridBody}>
+                    <View style={s.timeColumn}>
+                      {DAY_HOURS.map(hour => (
+                        <View key={hour} style={[s.timeCell, { borderColor: theme.colors.border }]}>
+                          <Text style={[s.timeLabel, { color: theme.colors.textMuted }]}>{hourLabel(hour)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={s.weekColumns}>
                       {week.map(date => {
                         const dateISO = dateToISO(date);
-                        const zoneKey = `${dateISO}|${hour}`;
-                        const slotItems = monthEvents.filter(item =>
-                          item.dateISO === dateISO &&
-                          item.itemType !== 'task' &&
-                          item.startHour !== undefined &&
-                          Math.floor(item.startHour) === hour
+                        return (
+                          <View key={dateISO} style={[s.weekColumn, { borderColor: theme.colors.border }]}>
+                            {DAY_HOURS.map(hour => (
+                              <View
+                                key={`${dateISO}-${hour}`}
+                                style={[
+                                  s.hourLine,
+                                  { borderColor: theme.colors.border },
+                                  hoverZone?.dateISO === dateISO && Math.floor(hoverZone.startHour ?? -1) === hour && s.dropHover,
+                                ]}
+                              />
+                            ))}
+                          </View>
                         );
-                        const isDropHover = Boolean(hoverZone && hoverZone.key === zoneKey);
+                      })}
+
+                      {hoverZone?.startHour !== undefined && dragging?.mode === 'move' ? (
+                        <View
+                          pointerEvents="none"
+                          style={[
+                            s.weekEventAbsolute,
+                            s.weekEventPreview,
+                            {
+                              left: `${(weekDateISOs.indexOf(hoverZone.dateISO) * 100) / 7}%`,
+                              top: hoverZone.startHour * HOUR_HEIGHT,
+                              width: `${100 / 7}%`,
+                              height: Math.max((dragging.block.endHour - dragging.block.startHour) * HOUR_HEIGHT, 34),
+                              borderColor: eventColor(dragging.item),
+                            },
+                          ]}
+                        />
+                      ) : null}
+
+                      {weekTimedBlocks.map(block => {
+                        const item = customBlockEvent(block);
+                        const dayIndex = weekDateISOs.indexOf(block.dateISO as string);
+                        if (dayIndex < 0) return null;
+                        const color = COURSES[block.course]?.color ?? COURSES.SELF.color;
+                        const top = clamp(block.startHour, 0, 24) * HOUR_HEIGHT;
+                        const height = Math.max((block.endHour - block.startHour) * HOUR_HEIGHT, 34);
                         return (
                           <View
-                            key={zoneKey}
-                            ref={ref => {
-                              zoneRefs.current[zoneKey] = ref;
-                            }}
+                            key={block.id}
+                            {...makeWeekMoveHandlers(block, item, 'move')}
                             style={[
-                              s.hourSlot,
-                              { borderColor: theme.colors.border },
-                              isDropHover && s.dropHover,
+                              s.weekEventAbsolute,
+                              {
+                                left: `${(dayIndex * 100) / 7}%`,
+                                top,
+                                width: `${100 / 7}%`,
+                                height,
+                                backgroundColor: `${color}28`,
+                                borderColor: color,
+                              },
+                              dragging?.block.id === block.id && s.dragSource,
                             ]}
                           >
-                            {slotItems.map(item => (
-                              <TouchableOpacity
-                                key={item.id}
-                                {...makeDragHandlers(item)}
-                                style={[
-                                  s.weekEventBlock,
-                                  { backgroundColor: `${eventColor(item)}28` },
-                                  dragging?.item.id === item.id && s.dragSource,
-                                ]}
-                                onPress={() => selectEvent(item)}
-                              >
-                                <Text numberOfLines={1} style={[s.weekEventTitle, { color: eventColor(item) }]}>{item.title}</Text>
-                                <Text style={[s.weekEventMeta, { color: theme.colors.textMuted }]}>
-                                  {formatHour(item.startHour ?? hour)} - {formatHour(item.endHour ?? item.startHour ?? hour)}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                            {isDropHover && dragging ? (
-                              <View style={[s.ghostBlock, { borderColor: eventColor(dragging.item) }]}>
-                                <Text numberOfLines={1} style={[s.weekEventTitle, { color: eventColor(dragging.item) }]}>{dragging.item.title}</Text>
-                                <Text style={[s.weekEventMeta, { color: theme.colors.textMuted }]}>{hourLabel(hour)}</Text>
-                              </View>
-                            ) : null}
+                            <Text numberOfLines={1} style={[s.weekEventTitle, { color }]}>{block.title}</Text>
+                            <Text style={[s.weekEventMeta, { color: theme.colors.textMuted }]}>{formatHour(block.startHour)} - {formatHour(block.endHour)}</Text>
+                            <View {...makeResizeHandlers(block, item)} style={[s.resizeHandle, { backgroundColor: color }]}>
+                              <Ionicons name="resize-outline" size={12} color="white" />
+                            </View>
                           </View>
                         );
                       })}
                     </View>
-                  ))}
+                  </View>
                 </View>
               )}
 
@@ -640,10 +889,14 @@ const s = StyleSheet.create({
   weekHeaderCell: { flex: 1, borderRightWidth: 1, paddingVertical: 8, alignItems: 'center' },
   allDayRow: { flexDirection: 'row', minHeight: 54, borderBottomWidth: 1 },
   allDayCell: { flex: 1, borderRightWidth: 1, padding: 5, gap: 4 },
-  hourRow: { flexDirection: 'row', minHeight: 58, borderBottomWidth: 1 },
-  timeGutter: { width: 58 },
-  timeLabel: { width: 58, paddingTop: 8, paddingRight: 8, textAlign: 'right', fontSize: 10, fontWeight: '800' },
-  hourSlot: { flex: 1, borderRightWidth: 1, padding: 4, gap: 4 },
+  timeGutter: { width: TIME_GUTTER },
+  timeLabel: { width: TIME_GUTTER, paddingRight: 8, textAlign: 'right', fontSize: 10, fontWeight: '800' },
+  weekGridBody: { flexDirection: 'row', height: HOUR_HEIGHT * 24, position: 'relative' },
+  timeColumn: { width: TIME_GUTTER },
+  timeCell: { height: HOUR_HEIGHT, borderRightWidth: 1, borderBottomWidth: 1, justifyContent: 'flex-start', paddingTop: 6 },
+  weekColumns: { flex: 1, flexDirection: 'row', position: 'relative' },
+  weekColumn: { flex: 1, borderRightWidth: 1 },
+  hourLine: { height: HOUR_HEIGHT, borderBottomWidth: 1 },
   dropHover: { backgroundColor: 'rgba(212,166,58,0.18)', borderColor: '#D4A63A' },
   dragSource: { opacity: 0.38 },
   weekDayName: { fontSize: 11, fontWeight: '900', textAlign: 'center' },
@@ -651,6 +904,10 @@ const s = StyleSheet.create({
   weekEventBlock: { borderRadius: 6, padding: 6 },
   weekEventTitle: { fontSize: 11, fontWeight: '900' },
   weekEventMeta: { fontSize: 9, fontWeight: '700', marginTop: 3 },
+  weekTaskChip: { borderRadius: 6, padding: 6 },
+  weekEventAbsolute: { position: 'absolute', borderLeftWidth: 3, borderRadius: 7, padding: 7, overflow: 'hidden', minHeight: 34 },
+  weekEventPreview: { borderWidth: 1.5, borderStyle: 'dashed', backgroundColor: 'rgba(168,85,247,0.08)' },
+  resizeHandle: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 16, alignItems: 'center', justifyContent: 'center', opacity: 0.9 },
   ghostBlock: { borderRadius: 6, borderWidth: 1.5, borderStyle: 'dashed', padding: 6, backgroundColor: 'rgba(168,85,247,0.08)' },
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
