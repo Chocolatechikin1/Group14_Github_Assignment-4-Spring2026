@@ -32,6 +32,7 @@ interface Props {
   toggleChecked: (id: string) => void;
   extraBlocks: ExtraBlock[];
   addBlock: (b: ExtraBlock) => void;
+  updateBlock: (b: ExtraBlock) => void;
 }
 
 function dateLabel(dateISO?: string) {
@@ -76,6 +77,7 @@ export default function DashboardScreen({
   toggleChecked,
   extraBlocks,
   addBlock,
+  updateBlock,
 }: Props) {
   const shared = useMemo(() => getSharedStyles(theme), [theme]);
   const { width } = useWindowDimensions();
@@ -86,6 +88,7 @@ export default function DashboardScreen({
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showAddStudy, setShowAddStudy] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<ExtraBlock | null>(null);
 
   const firstName = currentUser.firstName || currentUser.fullName.split(' ')[0] || currentUser.netId;
 
@@ -174,7 +177,7 @@ export default function DashboardScreen({
                   {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                 </Text>
               </View>
-              <TouchableOpacity style={[s.studyBtn, { backgroundColor: theme.colors.accent }]} onPress={() => setShowAddStudy(true)}>
+              <TouchableOpacity style={[s.studyBtn, { backgroundColor: theme.colors.accent }]} onPress={() => { setEditingBlock(null); setShowAddStudy(true); }}>
                 <Text style={s.studyBtnTxt}>+ Add Study Block or Task</Text>
               </TouchableOpacity>
             </View>
@@ -203,6 +206,10 @@ export default function DashboardScreen({
                   checked={checked.has(block.id)}
                   onCheck={toggleChecked}
                   onViewDetails={setSelectedBlock}
+                  onEdit={block => {
+                    setEditingBlock(block);
+                    setShowAddStudy(true);
+                  }}
                 />
               ))}
             </TaskGridSection>
@@ -221,6 +228,10 @@ export default function DashboardScreen({
                   checked={checked.has(block.id)}
                   onCheck={toggleChecked}
                   onViewDetails={setSelectedBlock}
+                  onEdit={block => {
+                    setEditingBlock(block);
+                    setShowAddStudy(true);
+                  }}
                 />
               ))}
             </TaskGridSection>
@@ -240,6 +251,10 @@ export default function DashboardScreen({
                     checked={checked.has(block.id)}
                     onCheck={toggleChecked}
                     onViewDetails={setSelectedBlock}
+                    onEdit={block => {
+                      setEditingBlock(block);
+                      setShowAddStudy(true);
+                    }}
                   />
                 ))}
               </TaskGridSection>
@@ -282,7 +297,18 @@ export default function DashboardScreen({
         onClose={() => setSelectedBlock(null)}
         onToggleComplete={toggleChecked}
       />
-      <AddStudyModal visible={showAddStudy} onClose={() => setShowAddStudy(false)} onAdd={addBlock} />
+      <AddStudyModal
+        visible={showAddStudy}
+        initialBlock={editingBlock}
+        onClose={() => {
+          setShowAddStudy(false);
+          setEditingBlock(null);
+        }}
+        onAdd={block => {
+          if (editingBlock) updateBlock(block);
+          else addBlock(block);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -329,12 +355,14 @@ function CustomBlockCard({
   checked,
   onCheck,
   onViewDetails,
+  onEdit,
 }: {
   block: ExtraBlock;
   theme: AppTheme;
   checked: boolean;
   onCheck: (id: string) => void;
   onViewDetails: (block: ExtraBlock) => void;
+  onEdit: (block: ExtraBlock) => void;
 }) {
   const course = COURSES[block.course] ?? COURSES.SELF;
   const isTask = block.itemType === 'task';
@@ -354,15 +382,24 @@ function CustomBlockCard({
         <View style={[s.customDot, { backgroundColor: course.color }]} />
         <View style={{ flex: 1 }} />
         <View style={[s.customBadge, { backgroundColor: `${course.color}22` }]}>
-          <Text style={[s.customBadgeText, { color: course.color }]}>{isTask ? 'TASK' : 'STUDY'}</Text>
+          <Text style={[s.customBadgeText, { color: course.color }]}>PERSONAL</Text>
         </View>
+        <TouchableOpacity style={[s.editBtn, { backgroundColor: theme.colors.surfaceMuted }]} onPress={() => onEdit(block)}>
+          <Ionicons name="create-outline" size={14} color={course.color} />
+        </TouchableOpacity>
       </View>
       <Text style={[s.studyTitle, { color: checked ? theme.colors.textSoft : theme.colors.text }, checked && { textDecorationLine: 'line-through' }]}>{block.title}</Text>
-      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>{course.label}</Text>
       <Text style={[s.studySub, { color: theme.colors.textMuted }]}>
-        {isTask
-          ? `Due ${dateLabel(block.dueDateISO || block.dateISO)}`
-          : `${dateLabel(block.dateISO)} | ${formatHour(block.startHour)} | ${durationText(block)}`}
+        <Text style={s.metaKey}>Course: </Text>
+        <Text style={{ color: course.color, fontWeight: '700' }}>{course.label}</Text>
+      </Text>
+      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>
+        <Text style={s.metaKey}>Due: </Text>
+        {isTask ? dateLabel(block.dueDateISO || block.dateISO) : `${dateLabel(block.dateISO)}, ${formatHour(block.startHour)}`}
+      </Text>
+      <Text style={[s.studySub, { color: theme.colors.textMuted }]}>
+        <Text style={s.metaKey}>Type: </Text>
+        {isTask ? 'Task' : `Study Block (${durationText(block)})`}
       </Text>
       <TouchableOpacity style={[s.viewBtn, { backgroundColor: course.color }]} onPress={() => onViewDetails(block)}>
         <Text style={s.viewBtnText}>View Details</Text>
@@ -536,8 +573,10 @@ const s = StyleSheet.create({
   customDot: { width: 10, height: 10, borderRadius: 5 },
   customBadge: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   customBadgeText: { fontSize: 10, fontWeight: '800' },
+  editBtn: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   studyTitle: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
   studySub: { fontSize: 12, lineHeight: 18, fontWeight: '600' },
+  metaKey: { fontWeight: '700' },
   viewBtn: { marginTop: 12, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
   viewBtnText: { color: 'white', fontWeight: '800', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 40 },

@@ -55,6 +55,9 @@ export default function App() {
   };
 
   const addBlock = (block: ExtraBlock) => setExtraBlocks(prev => [...prev, block]);
+  const updateBlock = (block: ExtraBlock) => {
+    setExtraBlocks(prev => prev.map(item => (item.id === block.id ? block : item)));
+  };
 
   const notifications: AppNotification[] = currentUser && notificationsEnabled
     ? [
@@ -122,6 +125,7 @@ export default function App() {
             toggleChecked={toggleChecked}
             extraBlocks={extraBlocks}
             addBlock={addBlock}
+            updateBlock={updateBlock}
           />
         );
       case 'Calendar':

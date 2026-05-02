@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
@@ -18,6 +18,7 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onAdd: (block: ExtraBlock) => void;
+  initialBlock?: ExtraBlock | null;
 }
 
 function todayISO() {
@@ -50,7 +51,18 @@ function cleanDurationPart(value: string) {
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 }
 
-export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
+function clockPartsFromHour(hourValue: number) {
+  const hour = Math.floor(hourValue);
+  const minutes = Math.round((hourValue - hour) * 60);
+  const period: 'AM' | 'PM' = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return {
+    time: `${displayHour}:${String(minutes).padStart(2, '0')}`,
+    period,
+  };
+}
+
+export default function AddStudyModal({ visible, onClose, onAdd, initialBlock = null }: Props) {
   const [itemType, setItemType] = useState<'study' | 'task'>('study');
   const [title, setTitle] = useState('');
   const [dateInput, setDateInput] = useState(todayISO());
@@ -75,6 +87,28 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
   const duration = durationTotalSeconds ? durationTotalSeconds / 3600 : 0;
   const isStudyValid = itemType === 'task' || (parsedStartHour !== null && durationTotalSeconds !== null);
   const isValid = Boolean(title.trim() && parsedDate && isStudyValid);
+  const editing = Boolean(initialBlock);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (!initialBlock) {
+      reset();
+      return;
+    }
+
+    setItemType(initialBlock.itemType ?? 'study');
+    setTitle(initialBlock.title);
+    setDateInput(initialBlock.dueDateISO || initialBlock.dateISO || todayISO());
+    const parts = clockPartsFromHour(initialBlock.startHour);
+    setTimeInput(parts.time);
+    setTimePeriod(parts.period);
+    const seconds = initialBlock.durationSeconds ?? Math.max(0, Math.round((initialBlock.endHour - initialBlock.startHour) * 3600));
+    setDurationHours(String(Math.floor(seconds / 3600)));
+    setDurationMinutes(String(Math.floor((seconds % 3600) / 60)));
+    setDurationSeconds(String(seconds % 60));
+    setCourse(initialBlock.course);
+    setNotes(initialBlock.notes ?? '');
+  }, [visible, initialBlock]);
 
   const reset = () => {
     setItemType('study');
@@ -95,7 +129,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
     const endHour = Math.min(startHour + duration, 24);
     const day = parsedDate.getDay() === 0 ? 7 : parsedDate.getDay();
     onAdd({
-      id: `eb-${Date.now()}`,
+      id: initialBlock?.id ?? `eb-${Date.now()}`,
       title: title.trim(),
       course: course as ExtraBlock['course'],
       day,
@@ -122,7 +156,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
         <View style={shared.overlay}>
           <View style={shared.sheet}>
             <View style={shared.sheetHandle} />
-            <Text style={[shared.modalTitle, { marginBottom: 20 }]}>Add Study Block or Task</Text>
+            <Text style={[shared.modalTitle, { marginBottom: 20 }]}>{editing ? 'Edit Study Block or Task' : 'Add Study Block or Task'}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 560 }}>
               <Text style={s.label}>Type</Text>
@@ -227,7 +261,7 @@ export default function AddStudyModal({ visible, onClose, onAdd }: Props) {
             </ScrollView>
 
             <TouchableOpacity style={[shared.ctaBtn, { backgroundColor: '#7C3AED', marginTop: 20, opacity: isValid ? 1 : 0.5 }]} onPress={handleAdd} disabled={!isValid}>
-              <Text style={shared.ctaTxt}>{itemType === 'study' ? 'Add Study Block' : 'Add Task'}</Text>
+              <Text style={shared.ctaTxt}>{editing ? 'Save Changes' : itemType === 'study' ? 'Add Study Block' : 'Add Task'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={shared.dismissBtn} onPress={handleClose}>
               <Text style={shared.dismissTxt}>Cancel</Text>
